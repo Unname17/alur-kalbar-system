@@ -45,13 +45,10 @@
         .level-3 { margin-left: 60px; border-left: 3px solid #f6c23e; }
         .level-4 { margin-left: 80px; border-left: 3px solid #e74a3b; }
 
-        /* ANIMASI */
-        .pulse { animation: pulse-animation 2s infinite; }
-        @keyframes pulse-animation { 0% { transform: scale(1); } 50% { transform: scale(1.05); } 100% { transform: scale(1); } }
-        
-        /* MODAL */
+        /* MODAL & TABLE INDIKATOR */
         .modal { z-index: 1060 !important; }
         .modal-backdrop { z-index: 1050 !important; }
+        .table-indikator thead th { background-color: #f8f9fc; font-size: 0.85rem; }
     </style>
 </head>
 <body>
@@ -75,6 +72,11 @@
                         <span id="badgePengajuan" class="badge bg-warning text-dark float-end" style="display:none">0</span>
                     </a>
                 </li>
+                <li>
+                    <a href="{{ route('kinerja.akses.index') }}">
+                        <i class="fas fa-user-lock me-2"></i> Akses Tambah Kinerja
+                    </a>
+                </li>
             @else
                 <li>
                     <a onclick="switchView('inbox')" id="menuInbox">
@@ -83,19 +85,6 @@
                     </a>
                 </li>
             @endif
-            {{-- ... Menu Pohon Kinerja Diatas Sini ... --}}
-
-            {{-- MENU BARU: AKSES TAMBAH KINERJA (HANYA SEKRETARIAT) --}}
-            @if(Auth::user()->peran == 'sekretariat' || Auth::user()->peran == 'admin_utama')
-                <li>
-                    <a href="{{ route('kinerja.akses.index') }}">
-                        <i class="fas fa-user-lock me-2"></i> Akses Tambah Kinerja
-                    </a>
-                </li>
-            @endif
-
-            {{-- ... Menu Verifikasi/Perbaikan Dibawah Sini ... --}}
-
         </ul>
         <div class="p-3 mt-auto text-center">
             <small class="text-white-50">Login: {{ Auth::user()->nama_lengkap ?? 'User' }}</small>
@@ -173,36 +162,68 @@
                 <form id="formKinerja">
                     <input type="hidden" id="nodeId" name="id">
                     
-                    <div class="mb-3">
-                        <label class="form-label fw-bold">Induk Kinerja <span class="text-danger">*</span></label>
-                        <select class="form-select" name="parent_id" id="parentSelect" required>
-                            <option value="">-- Pilih Induk --</option>
-                            @if(isset($parents))
-                                @foreach($parents as $p)
-                                    <option value="{{ $p->id }}">
-                                        {{ $p->nama_kinerja }} ({{ ucfirst($p->jenis_kinerja) }})
-                                    </option>
-                                @endforeach
-                            @endif
-                        </select>
+                    <div class="row">
+                        <div class="col-md-6 mb-3">
+                            <label class="form-label fw-bold small">Induk Kinerja <span class="text-danger">*</span></label>
+                            <select class="form-select form-select-sm" name="parent_id" id="parentSelect" required>
+                                <option value="">-- Pilih Induk --</option>
+                                @if(isset($parents))
+                                    @foreach($parents as $p)
+                                        <option value="{{ $p->id }}">{{ $p->nama_kinerja }} ({{ ucfirst($p->jenis_kinerja) }})</option>
+                                    @endforeach
+                                @endif
+                            </select>
+                        </div>
+                        <div class="col-md-6 mb-3">
+                            <label class="form-label fw-bold small">Jenis Kinerja <span class="text-danger">*</span></label>
+                            <select class="form-select form-select-sm" name="jenis_kinerja" id="inputJenis" onchange="toggleFields()">
+                                <option value="program">Program</option>
+                                <option value="kegiatan">Kegiatan</option>
+                                <option value="sub_kegiatan">Sub Kegiatan</option>
+                            </select>
+                        </div>
                     </div>
 
                     <div class="mb-3">
-                        <label class="form-label fw-bold">Nama Kinerja <span class="text-danger">*</span></label>
-                        <textarea class="form-control" name="nama_kinerja" id="inputNama" rows="3" required></textarea>
+                        <label class="form-label fw-bold small">Nama Kinerja (Nomenklatur) <span class="text-danger">*</span></label>
+                        <textarea class="form-control" name="nama_kinerja" id="inputNama" rows="2" placeholder="Contoh: Penyelenggaraan Pelayanan Publik..." required></textarea>
                     </div>
 
-                    <div class="mb-3">
-                        <label class="form-label fw-bold">Jenis Kinerja <span class="text-danger">*</span></label>
-                        <select class="form-select" name="jenis_kinerja" id="inputJenis">
-                            <option value="kegiatan">Kegiatan</option>
-                            <option value="sub_kegiatan">Sub Kegiatan</option>
-                        </select>
+                    <div class="row d-none bg-light p-2 rounded mb-3 border" id="rowSubKegiatan">
+                        <div class="col-md-6">
+                            <label class="form-label fw-bold small">Anggaran (Rp)</label>
+                            <input type="number" name="anggaran" id="inputAnggaran" class="form-control form-control-sm" placeholder="0">
+                        </div>
+                        <div class="col-md-6">
+                            <label class="form-label fw-bold small">Penanggung Jawab</label>
+                            <input type="text" name="penanggung_jawab" id="inputPJ" class="form-control form-control-sm" placeholder="Bidang...">
+                        </div>
                     </div>
 
-                    <div id="areaApproval" class="d-none border-top pt-3 bg-light p-3 rounded">
+                    <div class="border rounded p-2 mb-3">
+                        <label class="form-label fw-bold small text-primary"><i class="fas fa-bullseye"></i> Indikator Kinerja</label>
+                        <table class="table table-bordered table-sm table-indikator mb-0">
+                            <thead class="text-center">
+                                <tr>
+                                    <th width="50%">Indikator</th>
+                                    <th width="20%">Target</th>
+                                    <th width="20%">Satuan</th>
+                                    <th width="10%">
+                                        <button type="button" class="btn btn-xs btn-success" onclick="addIndikatorRow()">
+                                            <i class="fas fa-plus"></i>
+                                        </button>
+                                    </th>
+                                </tr>
+                            </thead>
+                            <tbody id="bodyIndikator">
+                                </tbody>
+                        </table>
+                        <div class="form-text small fst-italic">* Klik (+) untuk menambah indikator baru</div>
+                    </div>
+
+                    <div id="areaApproval" class="d-none border-top pt-3 bg-warning-subtle p-3 rounded">
                         <h6 class="fw-bold text-dark mb-2">Keputusan Verifikasi</h6>
-                        <textarea class="form-control mb-2" id="catatanKabid" placeholder="Tulis alasan penolakan..."></textarea>
+                        <textarea class="form-control mb-2" id="catatanKabid" placeholder="Tulis alasan penolakan jika ditolak..."></textarea>
                         <div class="d-flex gap-2">
                             <button type="button" onclick="submitApproval('setuju')" class="btn btn-success flex-fill">Setujui</button>
                             <button type="button" onclick="submitApproval('tolak')" class="btn btn-danger flex-fill">Tolak</button>
@@ -227,198 +248,110 @@
     const userId = {{ Auth::id() }};
     const userRole = "{{ Auth::user()->peran ?? 'staf' }}"; 
 
-    // --- INISIALISASI ---
     document.addEventListener("DOMContentLoaded", () => { 
         if (!rawData || rawData.length === 0) {
             document.getElementById('visualContainer').innerHTML = '<div class="alert alert-warning m-5 text-center">Data Pohon Kinerja Kosong.<br>Silakan tambahkan data baru.</div>';
-            document.getElementById('listContainer').innerHTML = '<div class="p-4 text-center text-muted">Belum ada data.</div>';
         } else {
             renderD3Tree(rawData[0]); 
             renderListView(); 
         }
-        
-        // Hitung Badge di Sidebar
         hitungBadgeInbox();
     });
 
-    // --- LOGIKA NAVIGASI SIDEBAR & TABS ---
-    
-    // Ganti Halaman Utama (Pohon vs Inbox)
-    function switchView(viewName) {
-        const visualDiv = document.getElementById('viewVisual');
-        const listDiv = document.getElementById('viewList');
-        const inboxDiv = document.getElementById('viewInbox');
-        const actionHeader = document.getElementById('actionHeader');
-
-        // Reset Sidebar Active
-        document.getElementById('menuPohon').classList.remove('active');
-        if(document.getElementById('menuInbox')) document.getElementById('menuInbox').classList.remove('active');
-
-        if (viewName === 'inbox') {
-            // Tampilkan Inbox
-            visualDiv.style.display = 'none';
-            listDiv.style.display = 'none';
-            inboxDiv.style.display = 'block';
-            actionHeader.style.display = 'none'; // Sembunyikan tombol visual/list
-            
-            if(document.getElementById('menuInbox')) document.getElementById('menuInbox').classList.add('active');
-            
-            document.getElementById('pageTitle').innerText = (userRole === 'sekretariat' || userRole === 'admin_utama') ? 'Verifikasi Pengajuan' : 'Daftar Perbaikan';
-            renderInbox(); // Generate isi inbox
-        } else {
-            // Tampilkan Pohon (Visual/List)
-            inboxDiv.style.display = 'none';
-            actionHeader.style.display = 'block';
-            document.getElementById('menuPohon').classList.add('active');
-            document.getElementById('pageTitle').innerText = 'Pohon Kinerja';
-            
-            // Balik ke mode terakhir (Visual/List)
-            switchMode('visual'); 
-        }
-    }
-
-    // Ganti Mode di dalam Menu Pohon (Visual vs List)
-    function switchMode(mode) {
-        document.getElementById('viewList').style.display = mode === 'list' ? 'block' : 'none';
-        document.getElementById('viewVisual').style.display = mode === 'visual' ? 'block' : 'none';
+    // --- FUNGSI DINAMIS INDIKATOR ---
+    function addIndikatorRow(data = null) {
+        let valInd = data ? data.indikator : '';
+        let valTrg = data ? data.target : '';
+        let valSat = data ? data.satuan : '';
         
-        document.getElementById('btnList').className = mode === 'list' ? 'btn btn-primary active' : 'btn btn-outline-primary';
-        document.getElementById('btnVisual').className = mode === 'visual' ? 'btn btn-primary active' : 'btn btn-outline-primary';
+        let html = `
+            <tr>
+                <td><textarea name="indikator[]" class="form-control form-control-sm" rows="1" placeholder="Uraian..." required>${valInd}</textarea></td>
+                <td><input type="text" name="target[]" class="form-control form-control-sm" value="${valTrg}" placeholder="Angka"></td>
+                <td><input type="text" name="satuan[]" class="form-control form-control-sm" value="${valSat}" placeholder="Satuan"></td>
+                <td class="text-center">
+                    <button type="button" class="btn btn-xs btn-danger" onclick="removeRow(this)"><i class="fas fa-trash"></i></button>
+                </td>
+            </tr>
+        `;
+        $('#bodyIndikator').append(html);
     }
 
-    // --- LOGIKA INBOX (PENGAJUAN / PERBAIKAN) ---
-
-    // Rekursif cari node berdasarkan status
-    function getNodesByStatus(nodes, status, checkOwner = false) {
-        let results = [];
-        nodes.forEach(node => {
-            let match = (node.status === status);
-            if (checkOwner) match = match && (node.created_by == userId);
-
-            if (match) results.push(node);
-            if (node.children) results = results.concat(getNodesByStatus(node.children, status, checkOwner));
-        });
-        return results;
+    function removeRow(btn) {
+        $(btn).closest('tr').remove();
     }
 
-    function renderInbox() {
-        const container = document.getElementById('inboxContainer');
-        container.innerHTML = '';
-        
-        let items = [];
-        let emptyMsg = '';
-
-        // LOGIKA FILTER BERDASARKAN ROLE
-        if (userRole === 'sekretariat' || userRole === 'admin_utama') {
-            // Sekretariat: Cari yang statusnya 'pengajuan' (Menunggu approval)
-            items = getNodesByStatus(rawData, 'pengajuan', false);
-            emptyMsg = 'Tidak ada pengajuan yang perlu diverifikasi.';
-            document.getElementById('inboxHeaderTitle').innerText = `Daftar Pengajuan Masuk (${items.length})`;
+    function toggleFields() {
+        let jenis = $('#inputJenis').val();
+        if(jenis === 'sub_kegiatan') {
+            $('#rowSubKegiatan').removeClass('d-none');
         } else {
-            // User Lain: Cari yang statusnya 'ditolak' DAN milik dia sendiri
-            items = getNodesByStatus(rawData, 'ditolak', true);
-            emptyMsg = 'Tidak ada data yang perlu diperbaiki.';
-            document.getElementById('inboxHeaderTitle').innerText = `Daftar Perbaikan (${items.length})`;
-        }
-
-        if (items.length === 0) {
-            container.innerHTML = `<div class="p-5 text-center text-muted"><i class="fas fa-check-circle fa-2x mb-3 text-gray-300"></i><br>${emptyMsg}</div>`;
-            return;
-        }
-
-        items.forEach(node => {
-            const dataStr = encodeURIComponent(JSON.stringify(node));
-            let badgeInfo = '';
-            let extraInfo = '';
-
-            if (userRole === 'sekretariat' || userRole === 'admin_utama') {
-                badgeInfo = '<span class="badge bg-warning text-dark">Menunggu</span>';
-                extraInfo = '<small class="text-primary"><i class="fas fa-user"></i> Pengaju: User ID ' + node.created_by + '</small>';
-            } else {
-                badgeInfo = '<span class="badge bg-danger">Ditolak</span>';
-                extraInfo = `<div class="mt-2 p-2 bg-light border border-danger rounded small text-danger">
-                                <strong>Catatan:</strong> ${node.catatan_penolakan || '-'}
-                             </div>`;
-            }
-
-            const itemHtml = `
-                <a href="#" onclick="pilihInboxItem('${dataStr}')" class="list-group-item list-group-item-action p-3 border-bottom">
-                    <div class="d-flex w-100 justify-content-between">
-                        <h6 class="mb-1 fw-bold text-dark">${node.nama_kinerja}</h6>
-                        ${badgeInfo}
-                    </div>
-                    <small class="text-muted text-uppercase fw-bold" style="font-size: 0.7rem;">${(node.jenis_kinerja || '').replace('_', ' ')}</small>
-                    <div class="mt-1">${extraInfo}</div>
-                    <small class="text-muted mt-2 d-block"><i class="fas fa-arrow-right"></i> Klik untuk proses</small>
-                </a>
-            `;
-            container.innerHTML += itemHtml;
-        });
-    }
-
-    function pilihInboxItem(encodedData) {
-        const data = JSON.parse(decodeURIComponent(encodedData));
-        klikNode(data); // Buka modal yang sama
-    }
-
-    function hitungBadgeInbox() {
-        if(userRole === 'sekretariat' || userRole === 'admin_utama') {
-            const count = getNodesByStatus(rawData, 'pengajuan', false).length;
-            if(count > 0) {
-                $('#badgePengajuan').text(count).show();
-            }
-        } else {
-            const count = getNodesByStatus(rawData, 'ditolak', true).length;
-            if(count > 0) {
-                $('#badgePerbaikan').text(count).show();
-            }
+            $('#rowSubKegiatan').addClass('d-none');
+            $('#inputAnggaran').val('');
+            $('#inputPJ').val('');
         }
     }
 
-    // --- FORM & ACTION ---
-    
+    // --- FORM LOGIC ---
     function klikNode(data) {
         $('#formKinerja')[0].reset();
         $('#nodeId').val(data.id);
+        
+        // Isi Data Utama
         $('#inputNama').val(data.nama_kinerja);
         $('#parentSelect').val(data.parent_id);
         $('#inputJenis').val(data.jenis_kinerja);
+        $('#inputAnggaran').val(data.anggaran || '');
+        $('#inputPJ').val(data.penanggung_jawab || '');
 
+        toggleFields(); // Cek apakah perlu nampilin field anggaran
+
+        // Isi Indikator (Looping)
+        $('#bodyIndikator').empty();
+        if (data.indikators && data.indikators.length > 0) {
+            data.indikators.forEach(item => addIndikatorRow(item));
+        } else {
+            addIndikatorRow(); // Baris kosong default
+        }
+
+        // Logic Readonly/Approval (Sama seperti sebelumnya)
         const isCreator = (data.created_by == userId);
         const isPending = (data.status === 'pengajuan');
         const isRejected = (data.status === 'ditolak');
 
+        // Default: Readonly semua, kecuali kondisi tertentu
+        let readOnly = true;
+
         $('#alertTolak').addClass('d-none');
         $('#areaApproval').addClass('d-none');
-        $('#footerSubmit').addClass('d-none'); 
+        $('#footerSubmit').addClass('d-none');
 
         if (isRejected && isCreator) {
-            // Mode Revisi (User Biasa)
+            // REVISI (Boleh Edit)
+            readOnly = false;
             $('#modalTitle').text('Perbaikan Data');
             $('#alertTolak').removeClass('d-none');
-            $('#pesanTolak').text(data.catatan_penolakan || 'Mohon perbaiki data.');
+            $('#pesanTolak').text(data.catatan_penolakan || '-');
             $('#footerSubmit').removeClass('d-none');
-            $('#inputNama').prop('readonly', false);
-        }
-        else if (isPending && (userRole === 'kepala_bidang' || userRole === 'admin_utama' || userRole === 'sekretariat')) {
-            // Mode Approval (Sekretariat)
+        } else if (isPending && (userRole === 'kepala_bidang' || userRole === 'admin_utama' || userRole === 'sekretariat')) {
+            // APPROVAL (Cuma boleh approve/reject)
             $('#modalTitle').text('Verifikasi Pengajuan');
             $('#areaApproval').removeClass('d-none');
-            $('#inputNama').prop('readonly', true);
-            $('#parentSelect').prop('disabled', true);
-            $('#inputJenis').prop('disabled', true);
+        } else if (!data.id) {
+            // BARU (Boleh Edit)
+            readOnly = false;
         }
-        else {
-            $('#modalTitle').text('Detail Kinerja');
-            $('#inputNama').prop('readonly', true);
-            $('#parentSelect').prop('disabled', true);
-            $('#inputJenis').prop('disabled', true);
-            
-            // Jika mau edit data yang sudah disetujui (opsional)
-            if(isCreator && data.status === 'disetujui') {
-                 // Bisa tambah logika disini jika ingin mengizinkan edit data yang sudah disetujui
-            }
-        }
+
+        // Terapkan Readonly ke Form
+        $('#inputNama').prop('readonly', readOnly);
+        $('#parentSelect').prop('disabled', readOnly);
+        $('#inputJenis').prop('disabled', readOnly);
+        $('#inputAnggaran').prop('readonly', readOnly);
+        $('#inputPJ').prop('readonly', readOnly);
+        
+        // Terapkan ke Tabel Indikator
+        $('#bodyIndikator textarea, #bodyIndikator input').prop('readonly', readOnly);
+        $('#bodyIndikator button').prop('disabled', readOnly);
 
         $('#modalForm').modal('show');
     }
@@ -427,25 +360,40 @@
         $('#formKinerja')[0].reset();
         $('#nodeId').val('');
         $('#modalTitle').text('Form Pengajuan Baru');
+        
+        $('#bodyIndikator').empty();
+        addIndikatorRow(); // 1 Baris kosong
+        
+        toggleFields();
+
+        // Unlock Form
         $('#alertTolak').addClass('d-none');
         $('#areaApproval').addClass('d-none');
         $('#footerSubmit').removeClass('d-none');
         $('#parentSelect').prop('disabled', false);
         $('#inputNama').prop('readonly', false);
         $('#inputJenis').prop('disabled', false);
+        $('#inputAnggaran').prop('readonly', false);
+        $('#inputPJ').prop('readonly', false);
+        $('#bodyIndikator button').prop('disabled', false);
+        $('#bodyIndikator input').prop('readonly', false);
+        $('#bodyIndikator textarea').prop('readonly', false);
+
         $('#modalForm').modal('show');
     }
 
     function simpanData() {
         if(!$('#parentSelect').val()) { alert("Induk Kinerja wajib dipilih!"); return; }
         if(!$('#inputNama').val()) { alert("Nama Kinerja wajib diisi!"); return; }
+        
         let id = $('#nodeId').val();
         let url = id ? `/kinerja/update/${id}` : `/kinerja/store`;
+        
         $.ajax({
             url: url, method: 'POST',
-            data: $('#formKinerja').serialize(),
+            data: $('#formKinerja').serialize(), // Ini otomatis ambil array indikator[]
             headers: { 'X-CSRF-TOKEN': $('meta[name="csrf-token"]').attr('content') },
-            success: function(res) { alert(res.message); location.reload(); },
+            success: function(res) { alert(res.message || "Berhasil disimpan!"); location.reload(); },
             error: function(xhr) { alert("Gagal: " + (xhr.responseJSON ? xhr.responseJSON.message : xhr.statusText)); }
         });
     }
@@ -462,7 +410,103 @@
         });
     }
 
-    // --- VISUAL & LIST RENDER ---
+    // --- NAVIGASI & RENDER TREE (SAMA SEPERTI SEBELUMNYA) ---
+    function switchView(viewName) {
+        const visualDiv = document.getElementById('viewVisual');
+        const listDiv = document.getElementById('viewList');
+        const inboxDiv = document.getElementById('viewInbox');
+        const actionHeader = document.getElementById('actionHeader');
+
+        document.getElementById('menuPohon').classList.remove('active');
+        if(document.getElementById('menuInbox')) document.getElementById('menuInbox').classList.remove('active');
+
+        if (viewName === 'inbox') {
+            visualDiv.style.display = 'none';
+            listDiv.style.display = 'none';
+            inboxDiv.style.display = 'block';
+            actionHeader.style.display = 'none';
+            if(document.getElementById('menuInbox')) document.getElementById('menuInbox').classList.add('active');
+            renderInbox();
+        } else {
+            inboxDiv.style.display = 'none';
+            actionHeader.style.display = 'block';
+            document.getElementById('menuPohon').classList.add('active');
+            switchMode('visual'); 
+        }
+    }
+
+    function switchMode(mode) {
+        document.getElementById('viewList').style.display = mode === 'list' ? 'block' : 'none';
+        document.getElementById('viewVisual').style.display = mode === 'visual' ? 'block' : 'none';
+        document.getElementById('btnList').className = mode === 'list' ? 'btn btn-primary active' : 'btn btn-outline-primary';
+        document.getElementById('btnVisual').className = mode === 'visual' ? 'btn btn-primary active' : 'btn btn-outline-primary';
+    }
+
+    function getNodesByStatus(nodes, status, checkOwner = false) {
+        let results = [];
+        nodes.forEach(node => {
+            let match = (node.status === status);
+            if (checkOwner) match = match && (node.created_by == userId);
+            if (match) results.push(node);
+            if (node.children) results = results.concat(getNodesByStatus(node.children, status, checkOwner));
+        });
+        return results;
+    }
+
+    function renderInbox() {
+        const container = document.getElementById('inboxContainer');
+        container.innerHTML = '';
+        let items = [];
+        let emptyMsg = '';
+
+        if (userRole === 'sekretariat' || userRole === 'admin_utama') {
+            items = getNodesByStatus(rawData, 'pengajuan', false);
+            emptyMsg = 'Tidak ada pengajuan yang perlu diverifikasi.';
+            document.getElementById('inboxHeaderTitle').innerText = `Daftar Pengajuan Masuk (${items.length})`;
+        } else {
+            items = getNodesByStatus(rawData, 'ditolak', true);
+            emptyMsg = 'Tidak ada data yang perlu diperbaiki.';
+            document.getElementById('inboxHeaderTitle').innerText = `Daftar Perbaikan (${items.length})`;
+        }
+
+        if (items.length === 0) {
+            container.innerHTML = `<div class="p-5 text-center text-muted"><i class="fas fa-check-circle fa-2x mb-3 text-gray-300"></i><br>${emptyMsg}</div>`;
+            return;
+        }
+
+        items.forEach(node => {
+            const dataStr = encodeURIComponent(JSON.stringify(node));
+            let badgeInfo = (userRole === 'sekretariat' || userRole === 'admin_utama') 
+                ? '<span class="badge bg-warning text-dark">Menunggu</span>' 
+                : '<span class="badge bg-danger">Ditolak</span>';
+            
+            const itemHtml = `
+                <a href="#" onclick="pilihInboxItem('${dataStr}')" class="list-group-item list-group-item-action p-3 border-bottom">
+                    <div class="d-flex w-100 justify-content-between">
+                        <h6 class="mb-1 fw-bold text-dark">${node.nama_kinerja}</h6>
+                        ${badgeInfo}
+                    </div>
+                    <small class="text-muted text-uppercase fw-bold">${(node.jenis_kinerja || '').replace('_', ' ')}</small>
+                </a>
+            `;
+            container.innerHTML += itemHtml;
+        });
+    }
+
+    function pilihInboxItem(encodedData) {
+        const data = JSON.parse(decodeURIComponent(encodedData));
+        klikNode(data);
+    }
+
+    function hitungBadgeInbox() {
+        if(userRole === 'sekretariat' || userRole === 'admin_utama') {
+            const count = getNodesByStatus(rawData, 'pengajuan', false).length;
+            if(count > 0) $('#badgePengajuan').text(count).show();
+        } else {
+            const count = getNodesByStatus(rawData, 'ditolak', true).length;
+            if(count > 0) $('#badgePerbaikan').text(count).show();
+        }
+    }
 
     function renderListView() {
         const container = document.getElementById('listContainer');
@@ -470,21 +514,13 @@
         function buildListHTML(nodes, level) {
             let content = '';
             nodes.forEach(node => {
-                let badgeClass = 'bg-secondary';
-                let statusText = node.status || 'Draft';
-                if(statusText === 'disetujui') badgeClass = 'bg-success';
-                else if(statusText === 'ditolak') badgeClass = 'bg-danger';
-                else if(statusText === 'pengajuan') badgeClass = 'bg-warning text-dark';
-                
+                let badgeClass = node.status === 'disetujui' ? 'bg-success' : (node.status === 'ditolak' ? 'bg-danger' : 'bg-warning text-dark');
                 const nodeDataStr = encodeURIComponent(JSON.stringify(node));
                 content += `
                     <div class="list-group-item tree-item level-${level}" onclick="pilihInboxItem('${nodeDataStr}')">
                         <div class="d-flex w-100 justify-content-between align-items-center">
-                            <div>
-                                <small class="text-muted text-uppercase fw-bold" style="font-size: 0.7rem;">${(node.jenis_kinerja || '').replace('_', ' ')}</small>
-                                <h6 class="mb-0 text-dark">${node.nama_kinerja}</h6>
-                            </div>
-                            <span class="badge ${badgeClass} rounded-pill">${statusText}</span>
+                            <div><small class="text-muted fw-bold">${(node.jenis_kinerja || '').toUpperCase()}</small><h6 class="mb-0">${node.nama_kinerja}</h6></div>
+                            <span class="badge ${badgeClass} rounded-pill">${node.status}</span>
                         </div>
                     </div>
                 `;
@@ -505,25 +541,16 @@
         const root = d3.hierarchy(rootData, d => d.children);
         const treeLayout = d3.tree().nodeSize([nodeWidth + 50, nodeHeight + 80]);
         treeLayout(root);
-        const svg = d3.select(container).append("svg")
-            .attr("width", "100%").attr("height", "100%")
+        const svg = d3.select(container).append("svg").attr("width", "100%").attr("height", "100%")
             .call(d3.zoom().scaleExtent([0.1, 2]).on("zoom", (e) => g.attr("transform", e.transform)))
             .append("g").attr("transform", `translate(${width/2}, 80) scale(0.9)`);
         const g = svg;
-        g.selectAll(".link").data(root.links()).enter().append("path")
-            .attr("class", "link").attr("d", d3.linkVertical().x(d => d.x).y(d => d.y));
+        g.selectAll(".link").data(root.links()).enter().append("path").attr("class", "link").attr("d", d3.linkVertical().x(d => d.x).y(d => d.y));
         const node = g.selectAll(".node").data(root.descendants()).enter().append("g")
-            .attr("class", "node").attr("transform", d => `translate(${d.x},${d.y})`)
-            .on("click", (e, d) => klikNode(d.data)); 
-        node.append("rect")
-            .attr("width", nodeWidth).attr("height", nodeHeight)
-            .attr("x", -nodeWidth/2).attr("y", -nodeHeight/2)
-            .attr("class", d => "status-" + (d.data.status || 'disetujui'));
-        node.append("foreignObject")
-            .attr("width", nodeWidth).attr("height", nodeHeight)
-            .attr("x", -nodeWidth/2).attr("y", -nodeHeight/2)
-            .append("xhtml:div").attr("class", "node-text-div")
-            .html(d => `<div>${d.data.nama_kinerja}</div>`);
+            .attr("class", "node").attr("transform", d => `translate(${d.x},${d.y})`).on("click", (e, d) => klikNode(d.data)); 
+        node.append("rect").attr("width", nodeWidth).attr("height", nodeHeight).attr("x", -nodeWidth/2).attr("y", -nodeHeight/2).attr("class", d => "status-" + (d.data.status || 'disetujui'));
+        node.append("foreignObject").attr("width", nodeWidth).attr("height", nodeHeight).attr("x", -nodeWidth/2).attr("y", -nodeHeight/2)
+            .append("xhtml:div").attr("class", "node-text-div").html(d => `<div>${d.data.nama_kinerja}</div>`);
     }
 </script>
 

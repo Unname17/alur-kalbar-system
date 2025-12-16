@@ -26,7 +26,7 @@ class WebPortalController extends Controller
                 'title' => 'Kerangka Acuan Kerja (KAK)',
                 'desc' => 'Manajemen Kerangka Acuan Kerja, Tahapan, dan Sumber Daya.',
                 'icon' => 'bi-journal-richtext',
-                'url' => '#', 
+                'url' => route('kak.index'), 
             ],
             [
                 'title' => 'Anggaran (RKA & SSH)',

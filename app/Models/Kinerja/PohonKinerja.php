@@ -12,12 +12,19 @@ class PohonKinerja extends Model
     // Pastikan koneksi ke modul_kinerja
     protected $connection = 'modul_kinerja';
     protected $table = 'pohon_kinerja';
+    protected $guarded = [];
 
     // TAMBAH KOLOM BARU DISINI
     protected $fillable = [
         'parent_id', 'opd_id', 'nama_kinerja', 'jenis_kinerja', 
         'status', 'catatan_penolakan', 'created_by' // <-- BARU
     ];
+
+public function indikators()
+{
+    // Relasi One-to-Many
+    return $this->hasMany(IndikatorKinerja::class, 'pohon_kinerja_id', 'id');
+}
 
     // Relasi ke Anak (Children)
     public function children()

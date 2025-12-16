@@ -4,150 +4,203 @@ namespace Database\Seeders;
 
 use Illuminate\Database\Seeder;
 use App\Models\Kinerja\PohonKinerja;
-use App\Models\Kinerja\DetailProgram;
-use App\Models\Kinerja\DetailKegiatan;
-use App\Models\Kinerja\DetailSubKegiatan;
 use Illuminate\Support\Facades\DB;
 
 class PohonKinerjaSeeder extends Seeder
 {
     public function run()
     {
-        // Konstanta
-        $idDiskominfo = 5;
-        $idAdminAwal = 1; // Asumsi ID user yang membuat data awal/resmi adalah 1 (Admin/Kadis)
+        // ==========================================
+        // KONFIGURASI AWAL
+        // ==========================================
+        $opdId = 5;  // ID Diskominfo (Sesuaikan dengan data user Anda)
+        $userId = 1; // ID Admin/Kadis yang menginput data awal
 
-        // 1. Reset Database (PENTING: Gunakan koneksi yang benar)
+        // 1. BERSIHKAN DATABASE (Reset Total)
+        // Kita matikan Foreign Key Check dulu agar bisa truncate tabel induk
         DB::connection('modul_kinerja')->statement('SET FOREIGN_KEY_CHECKS=0;');
-        PohonKinerja::on('modul_kinerja')->truncate();
-        DetailProgram::on('modul_kinerja')->truncate();
-        DetailKegiatan::on('modul_kinerja')->truncate();
-        DetailSubKegiatan::on('modul_kinerja')->truncate();
+        
+        PohonKinerja::on('modul_kinerja')->truncate(); // Hapus Pohon
+        DB::connection('modul_kinerja')->table('indikator_kinerja')->truncate(); // Hapus Indikator
+        DB::connection('modul_kinerja')->table('akses_penambahan_kinerja')->truncate(); // Hapus Rule Akses
+        
         DB::connection('modul_kinerja')->statement('SET FOREIGN_KEY_CHECKS=1;');
 
-        // ==========================================================
-        // LEVEL 0 & 1: ROOT (HIJAU) & INDUK DINAS (BIRU TUA)
-        // ==========================================================
-        $sasaranStrategis = $this->createNode('Mewujudkan Tata Kelola Pemerintahan Berbasis Elektronik yang Efektif dan Terintegrasi', 'sasaran_daerah', null, null, 'disetujui', $idAdminAwal);
+        DB::beginTransaction();
 
-        $sasaranUtama = $this->createNode('Meningkatkan Tata Kelola Sistem Pemerintahan Berbasis Elektronik Yang Aman dan Terintegrasi', 'sasaran_opd', $sasaranStrategis->id, $idDiskominfo, 'disetujui', $idAdminAwal);
+        try {
+            $this->command->info('Memulai Seeding Pohon Kinerja...');
 
-        // ==========================================================
-        // BIDANG 1: IKP (INFORMASI KOMUNIKASI PUBLIK)
-        // ==========================================================
-        $sasaranIKP = $this->createNode('Meningkatnya Kualitas Layanan Informasi Publik', 'sasaran_opd', $sasaranUtama->id, $idDiskominfo, 'disetujui', $idAdminAwal);
+            // ==========================================================
+            // LEVEL 0: VISI & MISI GUBERNUR (AKAR POHON)
+            // ==========================================================
+            $visi = $this->createNode(null, 'Terwujudnya Masyarakat Kalimantan Barat yang Sejahtera dan Berdaya Saing', 'visi', $opdId, $userId);
+            
+            $misi = $this->createNode($visi->id, 'Mewujudkan Tata Kelola Pemerintahan yang Berkualitas dan Inovatif (Smart Province)', 'misi', $opdId, $userId);
 
-            // --- CROSS CUTTING (MERAH) ---
-            $this->createCrossCutting($sasaranIKP->id, 'KOMISI INFORMASI', $idDiskominfo, $idAdminAwal);
-            $this->createCrossCutting($sasaranIKP->id, 'KOMISI PENYIARAN INDONESIA DAERAH', $idDiskominfo, $idAdminAwal);
+            // ==========================================================
+            // LEVEL 1: SASARAN OPD (ESELON II - KEPALA DINAS)
+            // ==========================================================
+            $sasaranUtama = $this->createNode($misi->id, 'Meningkatnya Kualitas Layanan Informasi dan Komunikasi Publik serta Tata Kelola SPBE', 'sasaran_opd', $opdId, $userId);
+            
+            $this->addIndikator($sasaranUtama, [
+                ['Indeks SPBE', '3.5', 'Indeks'],
+                ['Indeks Keterbukaan Informasi Publik', 'Sedang', 'Predikat'],
+                ['Indeks Keamanan Informasi', 'Baik', 'Predikat']
+            ]);
 
-            // PROGRAM
-            $progIKP = $this->createNode('Program Pengelolaan Informasi dan Komunikasi Publik', 'program', $sasaranIKP->id, $idDiskominfo, 'disetujui', $idAdminAwal);
-            DetailProgram::create(['pohon_id' => $progIKP->id, 'sasaran_program' => 'Terselenggaranya pengelolaan informasi publik', 'indikator_program' => 'Persentase kepuasan masyarakat terhadap akses informasi', 'target_program' => '75', 'satuan_target' => 'Persen']);
+            // ==========================================================
+            // BIDANG 1: IKP (INFORMASI KOMUNIKASI PUBLIK)
+            // ==========================================================
+            
+            // PROGRAM IKP
+            $progIKP = $this->createNode($sasaranUtama->id, 'PROGRAM PENGELOLAAN INFORMASI DAN KOMUNIKASI PUBLIK', 'program', $opdId, $userId);
+            $this->addIndikator($progIKP, [
+                ['Persentase tingkat kepuasan masyarakat terhadap akses info', '75', '%'],
+                ['Persentase permohonan Informasi Publik diselesaikan', '100', '%']
+            ]);
 
-                // KEGIATAN
-                $keg1 = $this->createNode('Pengelolaan Informasi dan Komunikasi Publik Pemda', 'kegiatan', $progIKP->id, $idDiskominfo, 'disetujui', $idAdminAwal);
-                DetailKegiatan::create(['pohon_id' => $keg1->id, 'indikator_kegiatan' => 'Persentase Kabupaten/Kota yang membentuk PPID', 'target_kegiatan' => '100', 'satuan_target' => 'Persen']);
+                // KEGIATAN 1: Pengelolaan Informasi Pemda
+                $kegIKP1 = $this->createNode($progIKP->id, 'Pengelolaan Informasi dan Komunikasi Publik Pemda', 'kegiatan', $opdId, $userId);
+                $this->addIndikator($kegIKP1, [
+                    ['Jumlah isu dan opini publik yang diakomodir', '440', 'Opini'],
+                    ['Persentase Kab/Kota yang membentuk PPID', '100', '%']
+                ]);
 
-                    // SUB KEGIATAN (DETAIL ANGGARAN DARI TABEL PDF HAL 2)
-                    $this->createSub($keg1->id, 'Monitoring Opini dan Aspirasi Publik', 'Jumlah Dokumen Monitoring', '1', 'Dokumen', 141499000, $idDiskominfo, $idAdminAwal);
-                    $this->createSub($keg1->id, 'Pelayanan Informasi Publik', 'Jumlah Dokumen Pelayanan', '1', 'Dokumen', 361298000, $idDiskominfo, $idAdminAwal);
-                    
-        // --- CONTOH NODE PENGAJUAN (DRAFT/PENDING) ---
-        // Node ini HANYA akan tampil jika created_by = Auth::id() ATAU jika Anda login sebagai Admin/Kabid
-        $this->createSub($keg1->id, 'Pengajuan Kegiatan Baru (Revisi)', 'Target Pengajuan Baru', '2', 'Dokumen', 50000000, $idDiskominfo, 2, 'ditolak', 'Anggaran tidak rasional. Revisi anggaran menjadi 50 juta.');
-        $this->createSub($keg1->id, 'Pengajuan Kegiatan Baru (Menunggu)', 'Target Ajuan Pending', '1', 'Dokumen', 120000000, $idDiskominfo, 2, 'pengajuan');
+                    // SUB KEGIATAN 1.1: Monitoring Opini
+                    $subIKP1 = $this->createNode($kegIKP1->id, 'Monitoring Opini dan Aspirasi Publik', 'sub_kegiatan', $opdId, $userId, 141499000, 'Bidang IKP');
+                    $this->addIndikator($subIKP1, [['Jumlah Dokumen Hasil Monitoring', '1', 'Dokumen']]);
 
+                    // SUB KEGIATAN 1.2: Pelayanan Informasi
+                    $subIKP2 = $this->createNode($kegIKP1->id, 'Pelayanan Informasi Publik', 'sub_kegiatan', $opdId, $userId, 361298000, 'Bidang IKP');
+                    $this->addIndikator($subIKP2, [['Jumlah Dokumen Hasil Pelayanan', '1', 'Dokumen']]);
 
-        // ==========================================================
-        // BIDANG 2: APTIKA (APLIKASI INFORMATIKA)
-        // ==========================================================
-        $sasaranAptika = $this->createNode('Meningkatnya Penerapan SPBE', 'sasaran_opd', $sasaranUtama->id, $idDiskominfo, 'disetujui', $idAdminAwal);
+                // KEGIATAN 2: Humas & Kemitraan
+                $kegIKP2 = $this->createNode($progIKP->id, 'Penyelenggaraan Hubungan Masyarakat, Media dan Kemitraan', 'kegiatan', $opdId, $userId);
+                $this->addIndikator($kegIKP2, [
+                    ['Jumlah Dokumen Kemitraan dengan Masyarakat', '1', 'Dokumen'],
+                    ['Jumlah Media Komunikasi Publik milik Pemda', '2', 'Media'],
+                    ['Jumlah Konten Informasi Publik (Kesehatan/Ekonomi)', '3', 'Konten'],
+                    ['Persentase Khalayak terpapar informasi', '75', '%'],
+                    ['Jumlah Strategi Komunikasi disusun', '1', 'Dokumen'],
+                    ['Jumlah ASN Komunikasi ikut bimtek', '160', 'Orang']
+                ]);
 
-            $this->createCrossCutting($sasaranAptika->id, 'DINAS PERPUSTAKAAN DAN KEARSIPAN', $idDiskominfo, $idAdminAwal);
-            $this->createCrossCutting($sasaranAptika->id, 'SELURUH PERANGKAT DAERAH (Implementasi SPBE)', $idDiskominfo, $idAdminAwal);
+            // ==========================================================
+            // BIDANG 2: APTIKA (APLIKASI INFORMATIKA)
+            // ==========================================================
+            
+            // PROGRAM APTIKA
+            $progAptika = $this->createNode($sasaranUtama->id, 'PROGRAM PENGELOLAAN APLIKASI INFORMATIKA', 'program', $opdId, $userId);
+            $this->addIndikator($progAptika, [
+                ['Persentase total bobot domain evaluasi SPBE', '73.5', 'Indeks'],
+                ['Persentase pengelolaan Nama Domain Pemda', '100', '%']
+            ]);
 
-            $progAptika = $this->createNode('Program Aplikasi Informatika', 'program', $sasaranAptika->id, $idDiskominfo, 'disetujui', $idAdminAwal);
-            DetailProgram::create(['pohon_id' => $progAptika->id, 'sasaran_program' => 'Implementasi Tata Kelola SPBE Optimal', 'indikator_program' => 'Indeks SPBE', 'target_program' => '3.5', 'satuan_target' => 'Indeks']);
+                // KEGIATAN: Pengelolaan e-Government
+                $kegApt1 = $this->createNode($progAptika->id, 'Pengelolaan e-Government Di Lingkup Pemda', 'kegiatan', $opdId, $userId);
+                $this->addIndikator($kegApt1, [['Persentase pengelolaan e-gov', '100', '%']]);
 
-                $kegApt1 = $this->createNode('Pengelolaan Nama Domain Pemerintah Daerah', 'kegiatan', $progAptika->id, $idDiskominfo, 'disetujui', $idAdminAwal);
-                DetailKegiatan::create(['pohon_id' => $kegApt1->id, 'indikator_kegiatan' => 'Persentase Pengelolaan Domain', 'target_kegiatan' => '100', 'satuan_target' => 'Persen']);
+                    // SUB KEGIATAN: Pengembangan Aplikasi
+                    $subApt1 = $this->createNode($kegApt1->id, 'Pengembangan Aplikasi dan Proses Bisnis Pemerintahan', 'sub_kegiatan', $opdId, $userId, 1108203400, 'Bidang Aptika');
+                    $this->addIndikator($subApt1, [
+                        ['Jumlah Aplikasi dan Proses Bisnis dikembangkan', '11', 'Unit']
+                    ]);
+
+            // ==========================================================
+            // BIDANG 3: STATISTIK SEKTORAL
+            // ==========================================================
+            
+            // PROGRAM STATISTIK
+            $progStat = $this->createNode($sasaranUtama->id, 'PROGRAM PENYELENGGARAAN STATISTIK SEKTORAL', 'program', $opdId, $userId);
+            $this->addIndikator($progStat, [['Jumlah Perangkat Daerah yang menyelenggarakan statistik', '35', 'PD']]);
+
+                // KEGIATAN: Penyelenggaraan Statistik
+                $kegStat = $this->createNode($progStat->id, 'Penyelenggaraan Statistik Sektoral di Daerah', 'kegiatan', $opdId, $userId);
                 
-                $kegApt2 = $this->createNode('Pengelolaan e-Government', 'kegiatan', $progAptika->id, $idDiskominfo, 'disetujui', $idAdminAwal);
-                DetailKegiatan::create(['pohon_id' => $kegApt2->id, 'indikator_kegiatan' => 'Persentase Pengelolaan e-Gov', 'target_kegiatan' => '100', 'satuan_target' => 'Persen']);
+                    // SUB KEGIATAN
+                    $subStat1 = $this->createNode($kegStat->id, 'Membangun Metadata Statistik Sektoral', 'sub_kegiatan', $opdId, $userId, 63258100, 'Bidang Statistik');
+                    $this->addIndikator($subStat1, [['Jumlah Metadata Statistik dihimpun', '1', 'Dokumen']]);
 
-                    $this->createSub($kegApt2->id, 'Pengembangan Aplikasi dan Proses Bisnis', 'Jumlah Aplikasi Dikembangkan', '11', 'Unit', 1108203400, $idDiskominfo, $idAdminAwal);
-                    $this->createSub($kegApt2->id, 'Penyelenggaraan Sistem Penghubung Layanan', 'Jumlah Layanan Terhubung', '10', 'Layanan', 71381400, $idDiskominfo, $idAdminAwal);
+            // ==========================================================
+            // SETUP RULES AKSES (WHITELIST INPUT)
+            // ==========================================================
+            $this->command->info('Membuat Rule Akses Input (Whitelist)...');
+            
+            // 1. Beri Izin OPD Input KEGIATAN di bawah Program IKP
+            DB::connection('modul_kinerja')->table('akses_penambahan_kinerja')->insert([
+                'opd_id' => $opdId,
+                'role_target' => 'opd',
+                'parent_id_allowed' => $progIKP->id,
+                'jenis_kinerja_allowed' => 'kegiatan',
+                'is_active' => true,
+                'created_by' => $userId,
+                'created_at' => now(),
+                'updated_at' => now(),
+            ]);
 
-        // ==========================================================
-        // BIDANG 3: STATISTIK
-        // ==========================================================
-        $sasaranStat = $this->createNode('Meningkatnya Kualitas Data Statistik Sektoral', 'sasaran_opd', $sasaranUtama->id, $idDiskominfo, 'disetujui', $idAdminAwal);
+             // 2. Beri Izin OPD Input SUB KEGIATAN di bawah Kegiatan IKP 1
+             DB::connection('modul_kinerja')->table('akses_penambahan_kinerja')->insert([
+                'opd_id' => $opdId,
+                'role_target' => 'opd',
+                'parent_id_allowed' => $kegIKP1->id, 
+                'jenis_kinerja_allowed' => 'sub_kegiatan', 
+                'is_active' => true,
+                'created_by' => $userId,
+                'created_at' => now(),
+                'updated_at' => now(),
+            ]);
 
-            $this->createCrossCutting($sasaranStat->id, 'BAPPEDA & BPS (Badan Pusat Statistik)', $idDiskominfo, $idAdminAwal);
+            // 3. Beri Izin OPD Input KEGIATAN di bawah Program Aptika
+            DB::connection('modul_kinerja')->table('akses_penambahan_kinerja')->insert([
+                'opd_id' => $opdId,
+                'role_target' => 'opd',
+                'parent_id_allowed' => $progAptika->id, 
+                'jenis_kinerja_allowed' => 'kegiatan', 
+                'is_active' => true,
+                'created_by' => $userId,
+                'created_at' => now(),
+                'updated_at' => now(),
+            ]);
 
-            $progStat = $this->createNode('Program Penyelenggaraan Statistik Sektoral', 'program', $sasaranStat->id, $idDiskominfo, 'disetujui', $idAdminAwal);
-            DetailProgram::create(['pohon_id' => $progStat->id, 'sasaran_program' => 'Integrasi Data Statistik Sektoral', 'indikator_program' => 'Jml PD yang mendukung statistik', 'target_program' => '35', 'satuan_target' => 'PD']);
+            DB::commit();
+            $this->command->info('SUKSES! Data Pohon Kinerja, Indikator, dan Hak Akses berhasil dibuat.');
 
-                $kegStat = $this->createNode('Penyelenggaraan Statistik Sektoral di Daerah', 'kegiatan', $progStat->id, $idDiskominfo, 'disetujui', $idAdminAwal);
-                
-                    $this->createSub($kegStat->id, 'Membangun Metadata Statistik Sektoral', 'Jumlah Metadata', '35', 'PD', 63258100, $idDiskominfo, $idAdminAwal);
-                    $this->createSub($kegStat->id, 'Peningkatan Kapasitas SDM Statistik', 'Jumlah SDM Dilatih', '104', 'Orang', 98057976, $idDiskominfo, $idAdminAwal);
-
-        // ==========================================================
-        // BIDANG 4: PERSANDIAN
-        // ==========================================================
-        $sasaranSandi = $this->createNode('Meningkatnya Keamanan Informasi Pemda', 'sasaran_opd', $sasaranUtama->id, $idDiskominfo, 'disetujui', $idAdminAwal);
-
-            $this->createCrossCutting($sasaranSandi->id, 'INSPEKTORAT, BIRO ORGANISASI, BKD', $idDiskominfo, $idAdminAwal);
-
-            $progSandi = $this->createNode('Program Persandian untuk Keamanan Informasi', 'program', $sasaranSandi->id, $idDiskominfo, 'disetujui', $idAdminAwal);
-            DetailProgram::create(['pohon_id' => $progSandi->id, 'sasaran_program' => 'Pelaksanaan Persandian Aman', 'indikator_program' => 'Indeks KAMI', 'target_program' => 'Baik', 'satuan_target' => 'Predikat']);
-
-                $kegSandi = $this->createNode('Persandian untuk Pengamanan Informasi', 'kegiatan', $progSandi->id, $idDiskominfo, 'disetujui', $idAdminAwal);
-                
-                    $this->createSub($kegSandi->id, 'Pelaksanaan Keamanan Informasi (Pen-Test)', 'Jumlah Laporan', '1', 'Laporan', 81410340, $idDiskominfo, $idAdminAwal);
-                    $this->createSub($kegSandi->id, 'Penyediaan Layanan Keamanan Informasi', 'Perangkat Daerah Terlayani', '35', 'PD', 225694590, $idDiskominfo, $idAdminAwal);
+        } catch (\Exception $e) {
+            DB::rollBack();
+            $this->command->error('GAGAL: ' . $e->getMessage());
+        }
     }
 
-    // --- HELPER FUNCTIONS ---
-    private function createNode($nama, $jenis, $parentId, $opdId, $status = 'draft', $createdBy = null) {
-        return PohonKinerja::on('modul_kinerja')->create([
-            'nama_kinerja' => $nama, 
-            'jenis_kinerja' => $jenis, 
-            'parent_id' => $parentId, 
-            'opd_id' => $opdId, 
-            'status' => $status, // Gunakan status dinamis
-            'created_by' => $createdBy
-        ]);
-    }
-
-    private function createCrossCutting($parentId, $nama, $opdId, $createdBy) {
-        // Trik: Tambahkan tag [CROSS_CUTTING] di nama agar dideteksi JS
-        return PohonKinerja::on('modul_kinerja')->create([
-            'nama_kinerja' => '[CROSS_CUTTING] ' . $nama,
-            'jenis_kinerja' => 'program', // Levelnya disejajarkan dengan Program
+    /**
+     * HELPER: Membuat Node Pohon Kinerja
+     */
+    private function createNode($parentId, $nama, $jenis, $opdId, $userId, $anggaran = 0, $pj = null, $status = 'disetujui')
+    {
+        return PohonKinerja::create([
             'parent_id' => $parentId,
+            'nama_kinerja' => $nama,
+            'jenis_kinerja' => $jenis,
             'opd_id' => $opdId,
-            'status' => 'disetujui',
-            'created_by' => $createdBy
+            'created_by' => $userId,
+            'anggaran' => $anggaran, // Otomatis masuk jika ada nilainya, null jika 0
+            'penanggung_jawab' => $pj,
+            'status' => $status
         ]);
     }
 
-    private function createSub($parentId, $nama, $ind, $trg, $sat, $ang, $opdId, $createdBy, $status = 'disetujui', $catatanPenolakan = null) {
-        $node = $this->createNode($nama, 'sub_kegiatan', $parentId, $opdId, $status, $createdBy);
-        DetailSubKegiatan::on('modul_kinerja')->create([
-            'pohon_id' => $node->id, 
-            'indikator_sub_kegiatan' => $ind, 
-            'target_sub_kegiatan' => $trg, 
-            'satuan_target' => $sat, 
-            'anggaran' => $ang, 
-            'penanggung_jawab' => 'Bidang Terkait'
-        ]);
-        
-        // Update catatan penolakan jika ada (khusus node yang ditolak)
-        if ($catatanPenolakan) {
-            $node->update(['catatan_penolakan' => $catatanPenolakan]);
+    /**
+     * HELPER: Menambahkan Banyak Indikator ke Node
+     * Format array: [['Nama Indikator', 'Target', 'Satuan'], ...]
+     */
+    private function addIndikator($node, $indikators)
+    {
+        foreach ($indikators as $ind) {
+            $node->indikators()->create([
+                'indikator' => $ind[0],
+                'target'    => $ind[1],
+                'satuan'    => $ind[2]
+            ]);
         }
     }
 }

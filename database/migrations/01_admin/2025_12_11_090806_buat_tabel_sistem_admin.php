@@ -6,71 +6,62 @@ use Illuminate\Support\Facades\Schema;
 
 return new class extends Migration
 {
+    protected $connection = 'modul_kinerja'; 
+
     public function up()
     {
-        // 1. Tabel Perangkat Daerah (OPD) - NODE YANG AKAN DISETUJUI
-        Schema::connection('sistem_admin')->create('perangkat_daerah', function (Blueprint $table) {
+        // 1. TABEL UTAMA: POHON KINERJA
+        // Ini menyimpan struktur hirarki (Adjacency List)
+        Schema::connection('modul_kinerja')->create('pohon_kinerja', function (Blueprint $table) {
             $table->id();
-            $table->string('nama_perangkat_daerah');
-            $table->string('kode_unit')->nullable();
-            $table->string('singkatan')->nullable();
             
-            // Status input dari sisi OPD
-            $table->enum('status_input', ['buka', 'tutup'])->default('buka'); 
-
-            // --- TAMBAHAN BARU: Fitur Verifikasi Sekretariat ---
-            // Status persetujuan dari Sekretariat
-            $table->enum('status_verifikasi', ['menunggu', 'disetujui', 'ditolak', 'revisi'])
-                  ->default('menunggu');
+            // PARENT_ID: Kunci Hirarki (Visi -> Misi -> Program -> Kegiatan)
+            $table->unsignedBigInteger('parent_id')->nullable(); 
             
-            // Mencatat ID User Sekretariat yang melakukan klik 'Setuju'
-            $table->unsignedBigInteger('diverifikasi_oleh')->nullable();
+            $table->unsignedBigInteger('opd_id')->nullable();    
+            $table->string('nama_kinerja'); // Nama Nomenklatur
             
-            // Catatan jika ditolak atau perlu revisi
-            $table->text('catatan_verifikasi')->nullable();
-            // ---------------------------------------------------
-
+            // Jenis level kinerja
+            $table->enum('jenis_kinerja', ['visi', 'misi', 'sasaran_daerah', 'sasaran_opd', 'program', 'kegiatan', 'sub_kegiatan']);
+            
+            // Kolom Status (Workflow)
+            $table->enum('status', ['draft', 'pengajuan', 'disetujui', 'ditolak'])->default('draft');
+            $table->text('catatan_penolakan')->nullable();
+            $table->unsignedBigInteger('created_by')->nullable();
+            
+            // DATA KHUSUS (Hanya terisi jika jenisnya sub_kegiatan, null jika visi/misi)
+            // Ini lebih efisien daripada buat tabel terpisah hanya untuk 2 kolom ini
+            $table->decimal('anggaran', 15, 2)->default(0)->nullable(); 
+            $table->string('penanggung_jawab')->nullable(); 
+            
             $table->timestamps();
+
+            // Self-Join Constraint (Penting untuk Adjacency List)
+            $table->foreign('parent_id')->references('id')->on('pohon_kinerja')->onDelete('cascade');
         });
 
-        // 2. Tabel Jadwal Input
-        Schema::connection('sistem_admin')->create('jadwal_penginputan', function (Blueprint $table) {
+        // 2. TABEL INDIKATOR (One-to-Many Relationship)
+        // Satu Pohon Kinerja BISA PUNYA BANYAK Indikator
+        Schema::connection('modul_kinerja')->create('indikator_kinerja', function (Blueprint $table) {
             $table->id();
-            $table->string('nama_tahapan');
-            $table->dateTime('waktu_mulai');
-            $table->dateTime('waktu_selesai');
-            $table->enum('status_aktif', ['buka', 'tutup']);
-            $table->timestamps();
-        });
-
-        // 3. Tabel Pengguna
-        Schema::connection('sistem_admin')->create('pengguna', function (Blueprint $table) {
-            $table->id();
-            $table->unsignedBigInteger('id_perangkat_daerah');
+            $table->unsignedBigInteger('pohon_kinerja_id'); // Foreign Key ke tabel atas
             
-            // Foreign key ke tabel perangkat_daerah
-            $table->foreign('id_perangkat_daerah')
-                  ->references('id')
-                  ->on('perangkat_daerah')
+            $table->text('indikator');   // Contoh: "Jumlah Dokumen Laporan"
+            $table->string('target');    // Contoh: "5"
+            $table->string('satuan');    // Contoh: "Dokumen"
+            
+            $table->timestamps();
+
+            // Relasi: Jika Pohon dihapus, Indikatornya hilang otomatis
+            $table->foreign('pohon_kinerja_id')
+                  ->references('id')->on('pohon_kinerja')
                   ->onDelete('cascade');
-            
-            $table->string('nama_lengkap');
-            $table->string('nip')->unique();
-            $table->string('kata_sandi');
-            
-            // Role user, pastikan ejaan 'sekretariat' dan 'opd' konsisten dengan seeder
-            $table->enum('peran', ['admin_utama', 'kepala_dinas', 'staf', 'ppk', 'sekretariat', 'opd']); 
-            $table->enum('status_input', ['buka', 'tutup'])->default('buka');
-
-            $table->timestamps();
         });
     }
 
-    public function down(): void
+    public function down()
     {
-        // Hapus tabel dengan urutan terbalik (anak dulu baru induk)
-        Schema::connection('sistem_admin')->dropIfExists('pengguna');
-        Schema::connection('sistem_admin')->dropIfExists('jadwal_penginputan');
-        Schema::connection('sistem_admin')->dropIfExists('perangkat_daerah');
+        Schema::connection('modul_kinerja')->dropIfExists('indikator_kinerja');
+        Schema::connection('modul_kinerja')->dropIfExists('pohon_kinerja');
     }
 };

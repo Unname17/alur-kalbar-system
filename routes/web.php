@@ -3,8 +3,9 @@
 use Illuminate\Support\Facades\Route;
 use App\Http\Controllers\Web\AdminWebController;
 use App\Http\Controllers\Web\WebPortalController;
-use App\Http\Controllers\Api\SekretariatController; // Sesuaikan jika Anda memindahkan filenya
-use App\Http\Controllers\Web\KinerjaWebController; // PENTING: Controller yang kita gunakan
+use App\Http\Controllers\Api\SekretariatController; 
+use App\Http\Controllers\Web\KinerjaWebController; 
+use App\Http\Controllers\Kak\KakController;
 
 /*
 |--------------------------------------------------------------------------
@@ -64,4 +65,22 @@ Route::middleware('auth')->group(function () {
     Route::delete('/kinerja/akses/{id}', [KinerjaWebController::class, 'deleteAkses'])->name('kinerja.akses.delete');
     
     });
+    
+
+    // ... kode route sebelumnya ...
+
+    Route::prefix('kak')->group(function () {
+        // --- BARIS INI YANG HARUS DITAMBAHKAN ---
+        Route::get('/', [KakController::class, 'index'])->name('kak.index'); 
+        
+        // Menampilkan form buat KAK berdasarkan ID Sub Kegiatan
+        Route::get('/create/{pohon_kinerja_id}', [KakController::class, 'create'])->name('kak.create');
+        
+        // Menyimpan data KAK
+        Route::post('/store', [KakController::class, 'store'])->name('kak.store');
+        
+        // Menampilkan detail KAK
+        Route::get('/show/{id}', [KakController::class, 'show'])->name('kak.show');
+    });
+
 });

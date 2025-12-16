@@ -8,24 +8,28 @@ return new class extends Migration
 {
     public function up()
     {
-        // Pastikan koneksi ke modul_kinerja (sesuaikan jika database terpisah)
         Schema::connection('modul_kinerja')->create('akses_penambahan_kinerja', function (Blueprint $table) {
             $table->id();
-            $table->unsignedBigInteger('opd_id'); // Rule ini berlaku untuk OPD mana
-            $table->string('role_target'); // Misal: 'opd' (Kepala Dinas/Staff)
             
-            // Parent ID yang DIIZINKAN untuk ditambah anak
+            // Siapa yang diberi izin? (Dinas mana)
+            $table->unsignedBigInteger('opd_id'); 
+            $table->string('role_target')->default('opd'); // Default ke akun dinas
+            
+            // Izin nempel ke Node mana? (Foreign Key ke Pohon Kinerja)
             $table->unsignedBigInteger('parent_id_allowed'); 
             
-            // Jenis Kinerja yang DIIZINKAN dibuat (misal: hanya boleh buat 'kegiatan')
+            // Dia boleh nambahin apa? (Program/Kegiatan/Sub Kegiatan)
             $table->string('jenis_kinerja_allowed'); 
             
             $table->boolean('is_active')->default(true);
-            $table->unsignedBigInteger('created_by');
+            $table->unsignedBigInteger('created_by'); // Biasanya ID Admin Bappeda/Sekretariat
             $table->timestamps();
 
-            // Foreign Key (Opsional, sesuaikan dengan tabel pohon_kinerja Anda)
-            // $table->foreign('parent_id_allowed')->references('id')->on('pohon_kinerja')->onDelete('cascade');
+            // --- PERBAIKAN: FOREIGN KEY DIAKTIFKAN ---
+            // Ini penting agar relasinya kuat ke tabel pohon_kinerja yang baru
+            $table->foreign('parent_id_allowed')
+                  ->references('id')->on('pohon_kinerja')
+                  ->onDelete('cascade');
         });
     }
 
