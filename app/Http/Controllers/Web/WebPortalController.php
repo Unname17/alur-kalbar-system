@@ -32,7 +32,7 @@ class WebPortalController extends Controller
                 'title' => 'Anggaran (RKA & SSH)',
                 'desc' => 'Input RKA, standar harga, dan pagu alokasi anggaran.',
                 'icon' => 'bi-currency-dollar',
-                'url' => '#', 
+                'url' => route('rka.pilih_kak'), 
             ],
             [
                 'title' => 'Pengadaan Barang/Jasa',
