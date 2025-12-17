@@ -5,7 +5,8 @@ use App\Http\Controllers\Web\AdminWebController;
 use App\Http\Controllers\Web\WebPortalController;
 use App\Http\Controllers\Api\SekretariatController; 
 use App\Http\Controllers\Web\KinerjaWebController; 
-use App\Http\Controllers\Kak\KakController;
+use App\Http\Controllers\Web\KakController;
+use App\Http\Controllers\Web\KakTimelineController;
 
 /*
 |--------------------------------------------------------------------------
@@ -38,42 +39,36 @@ Route::middleware('auth')->group(function () {
     Route::prefix('kinerja')->group(function () {
         
         // 1. TAMPILAN POHON KINERJA (GET)
-        // URL: /kinerja/pohon
         Route::get('pohon', [KinerjaWebController::class, 'showPohonKinerja'])->name('kinerja.pohon');
         
         // 2. CRUD APPROVAL (AJAX POST)
-        // URL: /kinerja/store
         Route::post('store', [KinerjaWebController::class, 'store'])->name('kinerja.store');
-        // URL: /kinerja/update/{id}
         Route::post('update/{id}', [KinerjaWebController::class, 'update'])->name('kinerja.update');
-        // URL: /kinerja/approval/{id}
         Route::post('approval/{id}', [KinerjaWebController::class, 'approval'])->name('kinerja.approval');
 
         // 3. REALISASI
         Route::get('realisasi', [KinerjaWebController::class, 'showRealisasi'])->name('kinerja.realisasi');
  
-// Halaman Tabel Verifikasi
-    Route::get('/admin/verifikasi-opd', [VerifikasiController::class, 'index'])
-        ->name('admin.verifikasi.index');
-
-    // Aksi Tombol Setujui
-    Route::post('/admin/verifikasi-opd/{id}/setujui', [VerifikasiController::class, 'setujuiOpd'])
-        ->name('sekretariat.setujui_opd');
+        // --- PERBAIKAN DI SINI ---
+        // Saya komen dulu baris di bawah ini karena VerifikasiController TIDAK ADA
+        // Jika nanti Anda membuatnya, silakan uncomment.
+        
+        // Route::get('/admin/verifikasi-opd', [VerifikasiController::class, 'index'])->name('admin.verifikasi.index');
+        // Route::post('/admin/verifikasi-opd/{id}/setujui', [VerifikasiController::class, 'setujuiOpd'])->name('sekretariat.setujui_opd');
     
-        Route::get('/kinerja/akses', [KinerjaWebController::class, 'indexAkses'])->name('kinerja.akses.index');
-    Route::post('/kinerja/akses', [KinerjaWebController::class, 'storeAkses'])->name('kinerja.akses.store');
-    Route::delete('/kinerja/akses/{id}', [KinerjaWebController::class, 'deleteAkses'])->name('kinerja.akses.delete');
-    
+        // AKSES PENGGUNA
+        Route::get('/akses', [KinerjaWebController::class, 'indexAkses'])->name('kinerja.akses.index');
+        Route::post('/akses', [KinerjaWebController::class, 'storeAkses'])->name('kinerja.akses.store');
+        Route::delete('/akses/{id}', [KinerjaWebController::class, 'deleteAkses'])->name('kinerja.akses.delete');
     });
     
 
-    // ... kode route sebelumnya ...
-
+    // ROUTE MODUL KAK
     Route::prefix('kak')->group(function () {
-        // --- BARIS INI YANG HARUS DITAMBAHKAN ---
+        
         Route::get('/', [KakController::class, 'index'])->name('kak.index'); 
         
-        // Menampilkan form buat KAK berdasarkan ID Sub Kegiatan
+        // Menampilkan form buat KAK
         Route::get('/create/{pohon_kinerja_id}', [KakController::class, 'create'])->name('kak.create');
         
         // Menyimpan data KAK
@@ -81,6 +76,17 @@ Route::middleware('auth')->group(function () {
         
         // Menampilkan detail KAK
         Route::get('/show/{id}', [KakController::class, 'show'])->name('kak.show');
+
+        // Edit & Update
+        Route::get('/edit/{id}', [KakController::class, 'edit'])->name('kak.edit');
+        Route::post('/update/{id}', [KakController::class, 'update'])->name('kak.update');
+    
+        // --- PERBAIKAN URL VERIFIKASI & CETAK ---
+        // Hapus '/kak' di depan karena sudah ada prefix
+        // URL Hasil: domain.com/kak/verifikasi/{id}
+        Route::post('/verifikasi/{id}', [KakController::class, 'verifikasi'])->name('kak.verifikasi');
+        Route::get('/cetak/{id}', [KakController::class, 'cetakPdf'])->name('kak.cetak');
+        Route::post('/timeline/store/{kak_id}', [KakTimelineController::class, 'store'])->name('kak.timeline.store');
     });
 
 });

@@ -4,6 +4,7 @@ namespace App\Models\Kinerja;
 
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
+use App\Models\Kak\Kak; // Import model Kak
 
 class PohonKinerja extends Model
 {
@@ -50,5 +51,10 @@ public function indikators()
     public function detailSubKegiatan()
     {
         return $this->hasOne(DetailSubKegiatan::class, 'pohon_id');
+    }
+    public function kak()
+    {
+        // Hubungkan ke Model Kak yang berada di database/koneksi modul_kak
+        return $this->hasOne(Kak::class, 'pohon_kinerja_id');
     }
 }

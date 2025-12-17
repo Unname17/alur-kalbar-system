@@ -47,64 +47,66 @@
             </button>
         </form>
         <div class="mt-8 p-4 bg-gray-50 border border-gray-200 rounded-lg">
-        <h3 class="text-md font-semibold text-gray-800 mb-3">
-            <i class="fas fa-database mr-2"></i>DATA AKUN UJI (Sesuai Database)
-        </h3>
-        <div class="overflow-x-auto">
-            <table class="w-full text-sm text-gray-600 border-collapse">
-                <thead>
-                    <tr class="text-left border-b border-gray-300">
-                        <th class="py-2">Nama Pengguna (Role)</th>
-                        <th class="py-2">NIP (Username)</th>
-                    </tr>
-                </thead>
-                <tbody class="text-xs">
-                    <tr class="border-b border-gray-100 hover:bg-white transition">
-                        <td class="py-2 font-medium text-gray-700">
-                            Admin Dinas Komunikasi dan Informatika
-                            <span class="block text-[10px] text-blue-500 font-normal">(Role: OPD)</span>
-                        </td>
-                        <td class="py-2 font-mono text-blue-600 select-all cursor-pointer" title="Klik untuk seleksi">
-                            199001010011001
-                        </td>
-                    </tr>
+            <h3 class="text-md font-semibold text-gray-800 mb-3 text-center">
+                <i class="fas fa-database mr-2"></i>DATA AKUN UJI (SESUAI SEEDER)
+            </h3>
+            <div class="overflow-x-auto">
+                <table class="w-full text-sm text-gray-600 border-collapse">
+                    <thead>
+                        <tr class="text-left border-b border-gray-300">
+                            <th class="py-2">Nama Pengguna (Role)</th>
+                            <th class="py-2">NIP / Username</th>
+                        </tr>
+                    </thead>
+                    <tbody class="text-xs">
+                        <tr class="border-b border-gray-100 bg-blue-50/50">
+                            <td class="py-2 font-bold text-blue-800">
+                                Super Administrator
+                                <span class="block text-[10px] text-blue-500 font-normal">(Role: admin_utama)</span>
+                            </td>
+                            <td class="py-2 font-mono text-blue-700 font-bold select-all cursor-pointer">admin</td>
+                        </tr>
 
-                    <tr class="border-b border-gray-100 hover:bg-white transition">
-                        <td class="py-2 font-medium text-gray-700">
-                            Admin Badan Perencanaan Pembangunan
-                            <span class="block text-[10px] text-blue-500 font-normal">(Role: OPD)</span>
-                        </td>
-                        <td class="py-2 font-mono text-blue-600 select-all cursor-pointer">
-                            199001010021001
-                        </td>
-                    </tr>
+                        <tr class="border-b border-gray-100 bg-purple-50/50">
+                            <td class="py-2 font-bold text-purple-800">
+                                Verifikator Sekretariat
+                                <span class="block text-[10px] text-purple-500 font-normal">(Role: sekretariat)</span>
+                            </td>
+                            <td class="py-2 font-mono text-purple-700 font-bold select-all cursor-pointer">198501012010012009</td>
+                        </tr>
 
-                    <tr class="border-b border-gray-100 hover:bg-white transition">
-                        <td class="py-2 font-medium text-gray-700">
-                            Admin Inspektorat Daerah
-                            <span class="block text-[10px] text-blue-500 font-normal">(Role: OPD)</span>
-                        </td>
-                        <td class="py-2 font-mono text-blue-600 select-all cursor-pointer">
-                            199001010031001
-                        </td>
-                    </tr>
+                        <tr class="border-b border-gray-100 hover:bg-white transition">
+                            <td class="py-2 font-medium">
+                                Kepala Dinas Kominfo
+                                <span class="block text-[10px] text-green-600 font-normal">(Role: kepala_dinas)</span>
+                            </td>
+                            <td class="py-2 font-mono text-gray-600 select-all cursor-pointer">19800101</td>
+                        </tr>
 
-                    <tr class="hover:bg-white transition bg-purple-50/50">
-                        <td class="py-2 font-bold text-purple-700">
-                            Verifikator Sekretariat
-                            <span class="block text-[10px] text-purple-500 font-normal">(Role: Sekretariat)</span>
-                        </td>
-                        <td class="py-2 font-mono text-purple-700 select-all cursor-pointer">
-                            198501012010012009
-                        </td>
-                    </tr>
-                </tbody>
-            </table>
+                        <tr class="border-b border-gray-100 italic">
+                            <td class="py-2">
+                                Admin Diskominfo Prov. Kalbar
+                                <span class="block text-[10px] text-indigo-500 font-normal">(Role: opd - ID 5)</span>
+                            </td>
+                            <td class="py-2 font-mono text-indigo-700 select-all cursor-pointer">199001010051001</td>
+                        </tr>
+
+                        <tr class="italic">
+                            <td class="py-2">
+                                Admin Dinas Sosial
+                                <span class="block text-[10px] text-indigo-500 font-normal">(Role: opd - ID 8)</span>
+                            </td>
+                            <td class="py-2 font-mono text-indigo-700 select-all cursor-pointer">199001010081001</td>
+                        </tr>
+                    </tbody>
+                </table>
+            </div>
+            
+            <div class="mt-4 p-2 bg-yellow-50 border border-yellow-100 rounded text-[10px] text-yellow-700">
+                <p><strong>Info Login:</strong> Password semua akun: <code class="bg-white px-1">password</code></p>
+                <p class="mt-1 italic">NIP OPD lainnya menggunakan format: 19900101 + [3 digit ID] + 1001</p>
+            </div>
         </div>
-        <p class="mt-3 text-xs text-center text-gray-500 italic bg-gray-100 p-1 rounded">
-            Password untuk semua akun: <strong>password</strong>
-        </p>
-    </div>
     </div>
 </div>
 
