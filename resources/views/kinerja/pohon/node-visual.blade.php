@@ -2,35 +2,28 @@
     $isCross = str_contains($node->nama_kinerja, '[CROSS_CUTTING]');
     $cleanName = str_replace('[CROSS_CUTTING]', '', $node->nama_kinerja);
     
-    // Class untuk Kotak (Link)
+    // Class untuk Kotak berdasarkan Jenis Kinerja
     $boxClass = 'box-normal';
-    if($isCross) $boxClass = 'box-cross'; // Kotak Merah Putus-putus
-    else if($node->jenis_kinerja == 'sasaran_daerah') $boxClass = 'bg-success text-white';
+    if($isCross) $boxClass = 'box-cross';
     else if($node->jenis_kinerja == 'sasaran_opd') $boxClass = 'bg-primary text-white';
     else if($node->jenis_kinerja == 'program') $boxClass = 'bg-info text-white';
     else if($node->jenis_kinerja == 'kegiatan') $boxClass = 'bg-warning text-dark';
-    else $boxClass = 'bg-secondary text-white';
-
-    // Class untuk List Item (Wrapper) - PENTING UNTUK GARIS
-    $liClass = $isCross ? 'li-cross' : '';
+    else if($node->jenis_kinerja == 'sub_kegiatan') $boxClass = 'bg-secondary text-white';
+    else if($node->jenis_kinerja == 'skp') $boxClass = 'bg-dark text-white'; // SKP Warna Gelap
+    else if($node->jenis_kinerja == 'rencana_aksi') $boxClass = 'bg-white border-primary text-primary';
 @endphp
 
-<li class="{{ $liClass }}">
+<li>
     <div class="node-wrapper">
-        <a href="javascript:void(0)" class="{{ $boxClass }}">
-            <div class="node-title">{{ $cleanName }}</div>
-            
-            @if(!$isCross)
-                <div class="node-detail">
-                    @if($node->detailProgram)
-                       Target: {{ $node->detailProgram->target_program }} {{ $node->detailProgram->satuan_target }}
-                    @elseif($node->detailKegiatan)
-                       {{ $node->detailKegiatan->target_kegiatan }} {{ $node->detailKegiatan->satuan_target }}
-                    @elseif($node->detailSubKegiatan)
-                       Rp {{ number_format($node->detailSubKegiatan->anggaran) }}
-                    @endif
-                </div>
-            @endif
+        <a href="javascript:void(0)" class="{{ $boxClass }} p-2 rounded shadow-sm d-block text-decoration-none" style="min-width: 150px">
+            <div class="node-title fw-bold" style="font-size: 0.8rem;">{{ $cleanName }}</div>
+            <div class="node-detail small" style="font-size: 0.7rem;">
+                @if($node->indikators->count() > 0)
+                   Tgt: {{ $node->indikators->first()->target }} {{ $node->indikators->first()->satuan }}
+                @elseif($node->anggaran > 0)
+                   Rp {{ number_format($node->anggaran, 0, ',', '.') }}
+                @endif
+            </div>
         </a>
     </div>
 

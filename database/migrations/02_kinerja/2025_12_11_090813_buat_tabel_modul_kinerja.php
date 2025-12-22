@@ -10,47 +10,48 @@ return new class extends Migration
 
     public function up()
     {
-        // 1. TABEL UTAMA: POHON KINERJA (Adjacency List)
+        // 1. TABEL UTAMA: POHON KINERJA
         Schema::connection('modul_kinerja')->create('pohon_kinerja', function (Blueprint $table) {
             $table->id();
-            
-            // Hirarki (Parent ID)
             $table->unsignedBigInteger('parent_id')->nullable(); 
-            
             $table->unsignedBigInteger('opd_id')->nullable();    
             $table->string('nama_kinerja'); 
             
-            // Jenis level kinerja
-            $table->enum('jenis_kinerja', ['visi', 'misi', 'sasaran_daerah', 'sasaran_opd', 'program', 'kegiatan', 'sub_kegiatan']);
+            // Level Kinerja Lengkap 
+            $table->enum('jenis_kinerja', [
+                'visi', 'misi', 'sasaran_daerah', 'sasaran_opd', 
+                'program', 'kegiatan', 'sub_kegiatan', 'skp', 'rencana_aksi'
+            ]);
             
             // Status Workflow
             $table->enum('status', ['draft', 'pengajuan', 'disetujui', 'ditolak'])->default('draft');
             $table->text('catatan_penolakan')->nullable();
             $table->unsignedBigInteger('created_by')->nullable();
             
-            // Data Khusus Sub Kegiatan (Anggaran & PJ)
+            // Data Anggaran & Penanggung Jawab
             $table->decimal('anggaran', 15, 2)->default(0)->nullable(); 
             $table->string('penanggung_jawab')->nullable(); 
+
+            // Fitur Tracking 5 Tahun sesuai arahan mentor [cite: 10]
+            $table->decimal('target_t1', 15, 2)->default(0);
+            $table->decimal('target_t2', 15, 2)->default(0);
+            $table->decimal('target_t3', 15, 2)->default(0);
+            $table->decimal('target_t4', 15, 2)->default(0);
+            $table->decimal('target_t5', 15, 2)->default(0);
             
             $table->timestamps();
-
-            // Self-Join Constraint
             $table->foreign('parent_id')->references('id')->on('pohon_kinerja')->onDelete('cascade');
         });
 
-        // 2. TABEL INDIKATOR (One-to-Many: 1 Kinerja Punya BANYAK Indikator)
-        // Inilah tabel yang dicari oleh Seeder tadi!
+        // 2. TABEL INDIKATOR (PENTING: Jangan sampai tertinggal!)
         Schema::connection('modul_kinerja')->create('indikator_kinerja', function (Blueprint $table) {
             $table->id();
-            $table->unsignedBigInteger('pohon_kinerja_id'); // Foreign Key ke Pohon
-            
-            $table->text('indikator');   // Nama Indikator
-            $table->string('target');    // Target
-            $table->string('satuan');    // Satuan
-            
+            $table->unsignedBigInteger('pohon_kinerja_id');
+            $table->text('indikator');
+            $table->string('target'); 
+            $table->string('satuan');
             $table->timestamps();
 
-            // Relasi Foreign Key
             $table->foreign('pohon_kinerja_id')
                   ->references('id')->on('pohon_kinerja')
                   ->onDelete('cascade');

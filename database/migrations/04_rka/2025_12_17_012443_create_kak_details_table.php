@@ -11,25 +11,27 @@ return new class extends Migration
     public function up()
     {
         Schema::connection($this->connection)->create('kak_details', function (Blueprint $table) {
-            $table->id();
-            $table->unsignedBigInteger('kak_id'); 
-            $table->unsignedBigInteger('ssh_id')->nullable(); // Tetap nullable untuk item manual
-            
-            $table->string('nama_barang');
-            $table->double('volume');
-            $table->string('satuan');
-            $table->double('harga_satuan');
-            $table->double('total_harga');
-            $table->text('keterangan')->nullable();
+$table->id();
+        $table->unsignedBigInteger('kak_id'); 
+        
+        // TAMBAHKAN KOLOM INI: Sebagai penghubung ke rka_main
+        $table->unsignedBigInteger('rka_id')->nullable(); 
+        
+        $table->unsignedBigInteger('ssh_id')->nullable();
+        $table->string('nama_barang');
+        $table->double('volume');
+        $table->string('satuan');
+        $table->double('harga_satuan');
+        $table->double('total_harga');
+        $table->text('keterangan')->nullable();
+        $table->boolean('is_manual')->default(false);
+        $table->integer('is_verified')->default(1);
+        $table->string('kategori');
+        $table->timestamps();
 
-            // --- Kolom Tambahan untuk Fitur Usulan Manual ---
-            $table->boolean('is_manual')->default(false); // True jika user input sendiri
-            $table->integer('is_verified')->default(1);   // 0: Ditolak, 1: Pending (Usulan), 2: Terverifikasi (Admin)
-            
-            $table->timestamps();
-
-            // Index untuk performa pencarian per KAK
-            $table->index('kak_id');
+        $table->index('kak_id');
+        // Tambahkan index untuk rka_id agar pencarian cepat
+        $table->index('rka_id');
         });
     }
 

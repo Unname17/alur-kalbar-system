@@ -5,59 +5,89 @@ namespace App\Http\Controllers\Web;
 use App\Http\Controllers\Controller;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Auth;
-use App\Models\Admin\Pengguna; // Model Pengguna
+use Illuminate\Support\Facades\DB; // <--- BARIS INI WAJIB ADA UNTUK MEMPERBAIKI ERROR
+use Illuminate\Support\Facades\Hash;
 
 class AdminWebController extends Controller
 {
-    // 1. Menampilkan Form Login
     public function showLoginForm()
     {
         return view('auth.login');
     }
 
-    // 2. Aksi Login
     public function loginAction(Request $request)
     {
         $credentials = $request->validate([
             'nip' => 'required|string',
-            // Gunakan 'password' di sini karena Auth::attempt mencari kolom password secara default, 
-            // dan kita akan mengandalkan getAuthPassword() di Model Pengguna jika kolomnya bernama 'kata_sandi'.
             'kata_sandi' => 'required|string', 
         ]);
 
-        // Karena kita sudah mengkonfigurasi config/auth.php:
-        // 1. Auth::attempt otomatis menggunakan 'nip' sebagai username (karena kita menyediakannya)
-        // 2. Auth::attempt otomatis menggunakan provider 'pengguna_provider' (yang terhubung ke sistem_admin)
-        
-        // PENTING: Auth::attempt harus menerima kunci 'password', meskipun input form Anda bernama 'kata_sandi'.
-        // Kita petakan input 'kata_sandi' ke kunci 'password' di array credentials:
         $loginData = [
             'nip' => $credentials['nip'],
             'password' => $credentials['kata_sandi'],
         ];
 
-        // Coba autentikasi
         if (Auth::attempt($loginData)) {
             $request->session()->regenerate();
-            
-            // REDIRECT KE HALAMAN PORTAL
             return redirect()->intended(route('dashboard')); 
         }
 
-        // Jika gagal
         return back()->withErrors([
             'nip' => 'Kredensial (NIP/Password) tidak valid.',
         ])->onlyInput('nip');
     }
     
-    // Anda perlu menambahkan kembali method logout dan method Web lainnya di sini
     public function logoutAction(Request $request)
     {
         Auth::logout();
         $request->session()->invalidate();
         $request->session()->regenerateToken();
-        return redirect('/');
+        return redirect()->route('login');
     }
-    
-    // ... showOpdList, showPenggunaList, showPohonKinerja, dll. ...
+
+    // --- MANAJEMEN OPD ---
+    public function showOpdList()
+    {
+        // Menggunakan koneksi sistem_admin sesuai arsitektur database Anda
+        $opds = DB::connection('sistem_admin')->table('perangkat_daerah')->get();
+        return view('admin.opd.index', compact('opds'));
+    }
+
+    // --- FITUR KUNCI/BUKA INPUT (TOGGLE STATUS) ---
+    public function toggleStatusInput($id)
+    {
+        // 1. Cari data OPD di database admin
+        $opd = DB::connection('sistem_admin')->table('perangkat_daerah')->where('id', $id)->first();
+
+        if (!$opd) {
+            return back()->with('error', 'Data OPD tidak ditemukan.');
+        }
+
+        // 2. Cek status sekarang dan balikkan (Toggle)
+        $statusBaru = ($opd->status_input === 'buka') ? 'tutup' : 'buka';
+
+        // 3. Update ke Database admin
+        DB::connection('sistem_admin')->table('perangkat_daerah')
+            ->where('id', $id)
+            ->update([
+                'status_input' => $statusBaru, 
+                'updated_at' => now()
+            ]);
+
+        // 4. Pesan Notifikasi
+        $pesan = ($statusBaru === 'tutup') 
+            ? 'Akses input OPD dikunci (Staf tidak bisa input).' 
+            : 'Akses input OPD dibuka kembali.';
+
+        return back()->with('success', $pesan);
+    }
+
+    public function showPenggunaList()
+    {
+        $users = DB::connection('sistem_admin')->table('pengguna')
+            ->join('perangkat_daerah', 'pengguna.id_perangkat_daerah', '=', 'perangkat_daerah.id')
+            ->select('pengguna.*', 'perangkat_daerah.nama_perangkat_daerah')
+            ->get();
+        return view('admin.pengguna.index', compact('users'));
+    }
 }

@@ -49,15 +49,18 @@
                 <i class="bi bi-arrow-left"></i> Kembali ke Daftar
             </a>
             <div class="btn-group">
-                <button type="button" class="btn btn-primary btn-sm" data-bs-toggle="modal" data-bs-target="#modalTimeline">
-                    <i class="bi bi-calendar-range"></i> Atur Jadwal
-                </button>
-                @if($kak->status == 2)
-                <button onclick="window.print()" class="btn btn-danger btn-sm">
-                    <i class="bi bi-printer"></i> Cetak PDF
-                </button>
-                @endif
-            </div>
+    @if($kak->status != 2)
+        <button type="button" class="btn btn-primary btn-sm" data-bs-toggle="modal" data-bs-target="#modalTimeline">
+            <i class="bi bi-calendar-range"></i> Atur Jadwal
+        </button>
+    @endif
+
+    @if($kak->status == 2)
+        <button onclick="window.print()" class="btn btn-danger btn-sm">
+            <i class="bi bi-printer"></i> Cetak PDF
+        </button>
+    @endif
+</div>
         </div>
     </div>
 

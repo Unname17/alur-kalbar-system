@@ -104,63 +104,72 @@
                             </tr>
                         </thead>
                         <tbody>
-                            @forelse($listSubKegiatan as $index => $item)
-                            <tr>
-                                <td class="ps-4 fw-medium text-muted">{{ $index + 1 }}</td>
-                                <td>
-                                    <div class="fw-bold text-dark mb-0">{{ $item->nama_kinerja }}</div>
-                                    <div class="text-muted extra-small" style="font-size: 0.75rem;">
-                                        <span class="badge bg-light text-dark border me-1">ID: {{ $item->id }}</span>
-                                        <i class="bi bi-link-45deg"></i> Terhubung ke alur_kalbar_kinerja
-                                    </div>
-                                </td>
-                                <td class="text-center">
-                                    @if(!$item->kak)
-                                        <span class="badge bg-light text-muted border rounded-pill px-3 py-2 small">Belum Dibuat</span>
-                                    @elseif($item->kak->status == 0)
-                                        <span class="badge bg-secondary text-white rounded-pill px-3 py-2 small">Draft</span>
-                                    @elseif($item->kak->status == 1)
-                                        <span class="badge bg-waiting rounded-pill px-3 py-2 small">Menunggu Verifikasi</span>
-                                    @elseif($item->kak->status == 2)
-                                        <span class="badge bg-approved rounded-pill px-3 py-2 small">Disetujui</span>
-                                    @elseif($item->kak->status == 3)
-                                        <span class="badge bg-rejected rounded-pill px-3 py-2 small">Ditolak</span>
-                                    @endif
-                                </td>
-                                <td class="text-end pe-4">
-                                    <div class="btn-group">
-                                        @if($item->kak)
-                                            <a href="{{ route('kak.show', $item->kak->id) }}" class="btn btn-outline-primary btn-sm rounded-pill px-3">
-                                                <i class="bi bi-eye"></i> Detail
-                                            </a>
+    @forelse($listSubKegiatan as $index => $sub)
+    <tr class="table-light">
+        <td class="ps-4 fw-bold text-primary">{{ $index + 1 }}</td>
+        <td colspan="3">
+            <div class="fw-bold"><i class="bi bi-folder2-open me-2"></i>SUB KEGIATAN: {{ $sub->nama_kinerja }}</div>
+        </td>
+    </tr>
 
-                                            @if($item->kak->status == 1)
-                                                <button type="button" class="btn btn-success btn-sm rounded-pill px-3 ms-1" 
-                                                    data-bs-toggle="modal" data-bs-target="#modalVerifikasi" 
-                                                    data-id="{{ $item->kak->id }}" data-nama="{{ $item->nama_kinerja }}">
-                                                    <i class="bi bi-check2-circle"></i> Verifikasi
-                                                </button>
-                                            @endif
+    @foreach($sub->children as $rak)
+    <tr>
+        <td></td> <td class="ps-5">
+            <div class="fw-semibold text-dark mb-0">{{ $rak->nama_kinerja }}</div>
+            <div class="text-muted extra-small" style="font-size: 0.75rem;">
+                <span class="badge bg-light text-dark border me-1">Rencana Aksi ID: {{ $rak->id }}</span>
+                <i class="bi bi-person-badge"></i> PJ: {{ $rak->penanggung_jawab ?? 'Staf Pelaksana' }}
+            </div>
+        </td>
+        <td class="text-center">
+            @if(!$rak->kak)
+                <span class="badge bg-light text-muted border rounded-pill px-3 py-2 small">Belum Disusun</span>
+            @elseif($rak->kak->status == 1)
+                <span class="badge bg-waiting rounded-pill px-3 py-2 small">Menunggu Verifikasi</span>
+            @elseif($rak->kak->status == 2)
+                <span class="badge bg-approved rounded-pill px-3 py-2 small">Disetujui</span>
+            @elseif($rak->kak->status == 3)
+                <span class="badge bg-rejected rounded-pill px-3 py-2 small">Ditolak</span>
+            @endif
+        </td>
+        <td class="text-end pe-4">
+    <div class="btn-group">
+        @if($rak->kak)
+            <a href="{{ route('kak.show', $rak->kak->id) }}" class="btn btn-outline-primary btn-sm rounded-pill px-3">
+                <i class="bi bi-eye"></i> Detail
+            </a>
 
-                                            @if($item->kak->status == 0 || $item->kak->status == 3)
-                                                <a href="{{ route('kak.edit', $item->kak->id) }}" class="btn btn-warning btn-sm rounded-pill px-3 ms-1">
-                                                    <i class="bi bi-pencil-square"></i> Perbaiki
-                                                </a>
-                                            @endif
-                                        @else
-                                            <a href="{{ route('kak.create', $item->id) }}" class="btn btn-primary btn-sm rounded-pill px-3 shadow-sm">
-                                                <i class="bi bi-plus-lg"></i> Susun KAK
-                                            </a>
-                                        @endif
-                                    </div>
-                                </td>
-                            </tr>
-                            @empty
-                            <tr>
-                                <td colspan="4" class="text-center py-5 text-muted small">Data tidak tersedia.</td>
-                            </tr>
-                            @endforelse
-                        </tbody>
+            @if($rak->kak->status == 1 && (Auth::user()->peran == 'sekretariat' || Auth::user()->peran == 'admin_utama'))
+                <button type="button" class="btn btn-success btn-sm rounded-pill px-3 ms-1" 
+                        data-bs-toggle="modal" 
+                        data-bs-target="#modalVerifikasi"
+                        data-id="{{ $rak->kak->id }}"
+                        data-nama="{{ $rak->nama_kinerja }}">
+                    <i class="bi bi-shield-check"></i> Verifikasi
+                </button>
+            @endif
+
+            @if($rak->kak->status == 3)
+                <a href="{{ route('kak.edit', $rak->kak->id) }}" class="btn btn-warning btn-sm rounded-pill px-3 ms-1">
+                    <i class="bi bi-pencil-square"></i> Perbaiki
+                </a>
+            @endif
+        @else
+            <a href="{{ route('kak.create', $rak->id) }}" class="btn btn-primary btn-sm rounded-pill px-3 shadow-sm">
+                <i class="bi bi-plus-lg"></i> Susun KAK
+            </a>
+        @endif
+    </div>
+</td>
+    </tr>
+    @endforeach
+
+    @empty
+    <tr>
+        <td colspan="4" class="text-center py-5 text-muted small">Data perencanaan belum tersedia.</td>
+    </tr>
+    @endforelse
+    </tbody>
                     </table>
                 </div>
             </div>

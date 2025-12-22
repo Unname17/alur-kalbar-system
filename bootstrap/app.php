@@ -25,6 +25,8 @@ return Application::configure(basePath: dirname(__DIR__))
         // B. Daftarkan Middleware Alias
         $middleware->alias([
             'db.set' => SetDatabaseConnection::class,
+            'role' => \App\Http\Middleware\RoleMiddleware::class,
+            'check.input' => \App\Http\Middleware\CheckInputStatus::class,
         ]);
     })
     

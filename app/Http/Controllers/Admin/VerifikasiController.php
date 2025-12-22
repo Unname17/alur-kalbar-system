@@ -9,49 +9,20 @@ use Illuminate\Support\Facades\Auth;
 
 class VerifikasiController extends Controller
 {
-    /**
-     * Menampilkan Halaman Tabel Verifikasi OPD
-     */
-    public function index()
+    // Fungsi untuk Buka/Tutup Akses Input OPD secara manual [cite: 66, 67]
+    public function toggleAksesInput(Request $request, $id)
     {
-        // Ambil data OPD dari database 'sistem_admin'
-        $list_opd = DB::connection('sistem_admin')
-            ->table('perangkat_daerah')
-            ->orderBy('nama_perangkat_daerah', 'asc')
-            ->get();
-
-        // Tampilkan View yang tadi kita buat (pastikan nama file bladenya sesuai)
-        return view('admin.opd.verifikasi', [
-            'viewTitle' => 'Verifikasi Perangkat Daerah',
-            'list_opd' => $list_opd
-        ]);
-    }
-
-    /**
-     * Proses Saat Tombol "Setujui" Diklik
-     */
-    public function setujuiOpd($id)
-    {
-        // 1. Validasi Keamanan: Pastikan yang klik adalah Sekretariat
-        if (Auth::user()->peran !== 'sekretariat') {
-            return redirect()->back()->with('error', 'Akses Ditolak. Anda bukan Sekretariat.');
+        if (!in_array(Auth::user()->peran, ['admin_utama', 'sekretariat'])) {
+            return redirect()->back()->with('error', 'Hanya Bappeda yang bisa mengontrol akses.');
         }
 
-        // 2. Update Database
-        try {
-            DB::connection('sistem_admin')
-                ->table('perangkat_daerah')
-                ->where('id', $id)
-                ->update([
-                    'status_verifikasi' => 'disetujui',
-                    'diverifikasi_oleh' => Auth::id(),
-                    'updated_at'        => now(),
-                ]);
+        DB::connection('sistem_admin')->table('perangkat_daerah')
+            ->where('id', $id)
+            ->update([
+                'status_input' => $request->status, // 'buka' atau 'tutup'
+                'updated_at'   => now(),
+            ]);
 
-            return redirect()->back()->with('sukses', 'Data Perangkat Daerah berhasil disetujui!');
-        
-        } catch (\Exception $e) {
-            return redirect()->back()->with('error', 'Terjadi kesalahan: ' . $e->getMessage());
-        }
+        return redirect()->back()->with('sukses', 'Status akses OPD berhasil diubah!');
     }
 }

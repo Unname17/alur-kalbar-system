@@ -17,7 +17,7 @@ class WebPortalController extends Controller
         // Mulai dari Pohon Kinerja ke bawah
         $apps = [
             [
-                'title' => 'Pohon Kinerja',
+                'title' => 'Pohon Kinerja E-Performance',
                 'desc' => 'Perencanaan strategis: Visi, Misi, Tujuan, Sasaran, Program, dan Indikator.',
                 'icon' => 'bi-bar-chart-line-fill',
                 'url' => route('kinerja.pohon'),
@@ -38,7 +38,7 @@ class WebPortalController extends Controller
                 'title' => 'Pengadaan Barang/Jasa',
                 'desc' => 'Manajemen paket pekerjaan, metode pengadaan, dan kontrak.',
                 'icon' => 'bi-truck',
-                'url' => '#', 
+                'url' => route('pengadaan.index'),
             ],
         ];
 

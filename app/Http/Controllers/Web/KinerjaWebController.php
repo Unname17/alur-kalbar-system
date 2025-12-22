@@ -1,52 +1,154 @@
 <?php
 
 namespace App\Http\Controllers\Web;
+use Illuminate\Support\Facades\DB;
 
 use App\Http\Controllers\Controller;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Auth;
-use Illuminate\Support\Facades\DB;
-use App\Models\Kinerja\PohonKinerja; // Pastikan namespace Model benar
-use App\Models\Kinerja\IndikatorKinerja;
+use App\Models\Kinerja\PohonKinerja;
 
 class KinerjaWebController extends Controller
 {
     /**
      * Menampilkan Halaman Utama Pohon Kinerja
+     * Mengatasi error "Call to undefined method showPohonKinerja"
      */
-    public function showPohonKinerja()
-{
-    $user = Auth::user();
-    
-    // SESUAIKAN: Pastikan nama kolom 'opd_id' atau 'id_perangkat_daerah'
-    // Untuk sementara, jika data tetap kosong, coba hapus baris ->where('opd_id', ...) untuk testing
-    $pohons = PohonKinerja::whereNull('parent_id')
-        ->where('opd_id', 5) // Hardcode ke 5 dulu untuk memastikan data seeder muncul
-        ->with([
-            'indikators', 
-            'children.indikators', 
-            'children.children.indikators', 
-            'children.children.children.indikators', 
-            'children.children.children.children.indikators',
-            'children.children.children.children.children.indikators'
-        ])
-        ->get();
+        public function showPohonKinerja()
+        {
+            $parents = collect(); 
+            $opds = collect();
+            $allUsers = collect();
+            $user = Auth::user();
+            // 1. Tentukan Hak Akses Pohon
+            $isValidator = in_array($user->peran, ['admin_utama', 'sekretariat', 'validator_bappeda']);
+            
+            // LOGIKA BARU: Jika validator, tampilkan semua yang ditolak. Jika bukan, filter per OPD
+    $rejected = PohonKinerja::where('status', 'ditolak')
+        ->with('indikators')
+        ->when(!$isValidator, function($q) use ($user) {
+            return $q->where('opd_id', $user->opd_id);
+        })->get();
+            // 1. Ambil data Inbox (Khusus status 'pengajuan')
+            // $inbox = PohonKinerja::where('status', 'pengajuan')
+            //             ->with('indikators')
+            //             ->when(!$isValidator, function($q) use ($user) {
+            //                 return $q->where('opd_id', $user->opd_id);
+            //             })->get();
+            $inbox = PohonKinerja::where('status', 'pengajuan')
+            ->with('indikators')
+            ->when(!$isValidator, function($q) use ($user) {
+                return $q->where('opd_id', $user->id_perangkat_daerah);
+            })->get();
+            
+            
+            if ($isValidator) {
+                // Validator melihat dari akar (Visi) untuk SEMUA OPD
+                $pohons = PohonKinerja::whereNull('parent_id')
+                    ->with(['indikators', 'children.children.children.children.children']) 
+                    ->get();
         
-    $parents = PohonKinerja::where('opd_id', 5)
-        ->where('jenis_kinerja', '!=', 'sub_kegiatan') 
-        ->orderBy('id', 'desc')
-        ->get();
+        // PERBAIKAN: Tambahkan groupBy di sini agar struktur sama dengan role OPD
+        $parents = PohonKinerja::all()->groupBy('jenis_kinerja'); 
+        
+        $opds = DB::connection('sistem_admin')->table('perangkat_daerah')->get();
+        $allUsers = DB::connection('sistem_admin')->table('pengguna')
+                    ->join('perangkat_daerah', 'pengguna.id_perangkat_daerah', '=', 'perangkat_daerah.id')
+                    ->select('pengguna.*', 'perangkat_daerah.nama_perangkat_daerah')
+                    ->get();
+        
+        // SINKRONISASI NAMA: Ganti allUsers menjadi opds agar sesuai dengan foreach di view
+        $opds = DB::connection('sistem_admin')->table('perangkat_daerah')->get();
+            } else {
+                // User OPD hanya melihat cabang miliknya sendiri
+                // 1. Tampilan Visual (Hanya ambil level teratas, sisanya via 'with')
+                // 1. Ambil data VISUAL (5 Kotak di jalur pertama)
+        $pohons = PohonKinerja::where('opd_id', $user->id_perangkat_daerah)
+                    ->where('jenis_kinerja', 'sasaran_opd')
+                    ->with(['children.children.children.children']) // Load semua level
+                    ->get();
 
-    return view('kinerja.pohon.index', [
-        'viewTitle' => 'Pohon Kinerja Digital',
-        'pohons' => $pohons,
-        'parents' => $parents
+        // 2. Ambil data DROPDOWN (Sinkronkan agar hanya 5 data jalur tersebut)
+        // Kita filter hanya jalur [01] agar tidak muncul puluhan data seeder lainnya
+        $parents = PohonKinerja::where('opd_id', $user->id_perangkat_daerah)
+                    ->where('nama_kinerja', 'LIKE', '%[01]%') // Filter agar hanya jalur yang tampil di visual
+                    ->get()
+                    ->groupBy('jenis_kinerja'); // Dikelompokkan untuk UI yang rapi
+            }
+
+            // 2. Data Pengguna untuk Fitur Kunci Pengguna (Ditarik dari DB Admin)
+            $allUsers = collect();
+            if ($isValidator) {
+                $allUsers = DB::connection('sistem_admin')->table('pengguna')
+                            ->join('perangkat_daerah', 'pengguna.id_perangkat_daerah', '=', 'perangkat_daerah.id')
+                            ->select('pengguna.*', 'perangkat_daerah.nama_perangkat_daerah')
+                            ->get();
+            }
+
+            return view('kinerja.pohon.index', [
+                'viewTitle' => 'Pohon Kinerja Visual',
+                'pohons' => $pohons,
+                'inbox' => $inbox, 
+                'parents' => $parents, 
+                'opds' => $opds,       
+                'allUsers' => $allUsers, // Untuk fitur Kunci Pengguna
+                'rejected' => $rejected, // PASTIKAN VARIABEL INI DIKIRIM
+                'isValidator' => $isValidator
+            ]);
+        }
+
+public function getApiDetail($id)
+{
+    // Mengambil data yang sudah DISETUJUI oleh Bappeda
+    $data = \App\Models\Kinerja\PohonKinerja::with('indikators')
+            ->where('id', $id)
+            ->where('status', 'disetujui') 
+            ->first();
+
+    if (!$data) {
+        return response()->json(['message' => 'Data tidak ditemukan atau belum divalidasi'], 404);
+    }
+
+    // Mengembalikan data JSON untuk dikonsumsi Modul KAK
+    return response()->json([
+        'nama_kinerja' => $data->nama_kinerja,
+        'anggaran'     => $data->anggaran,
+        'pj'           => $data->penanggung_jawab,
+        'indikators'   => $data->indikators, // Menarik target & satuan otomatis
     ]);
 }
 
-    /**
-     * Menyimpan Data Baru (Store)
-     */
+        public function approval(Request $request, $id)
+    {
+        $node = PohonKinerja::findOrFail($id);
+        
+        // Cek jika user mencentang "Setujui Seluruh Ranting"
+        $isBulk = $request->has('bulk') && $request->bulk == "1";
+
+        if ($isBulk && $request->action == 'setuju') {
+            // Validasi rekursif ke bawah (Massal)
+            $this->approveRecursive($id);
+            $message = 'Satu pohon kinerja berhasil disetujui secara massal.';
+        } else {
+            // Validasi Satuan
+            $node->update([
+                'status' => ($request->action == 'setuju') ? 'disetujui' : 'ditolak',
+                'catatan_penolakan' => $request->catatan
+            ]);
+            $message = 'Status inputan berhasil diperbarui.';
+        }
+
+        return response()->json(['status' => 'success', 'message' => $message]);
+    }
+
+    private function approveRecursive($parentId)
+    {
+        PohonKinerja::where('id', $parentId)->update(['status' => 'disetujui']);
+        $children = PohonKinerja::where('parent_id', $parentId)->get();
+        foreach ($children as $child) {
+            $this->approveRecursive($child->id);
+        }
+    }
     public function store(Request $request)
     {
         // 1. Validasi Input
@@ -99,6 +201,19 @@ class KinerjaWebController extends Controller
     /**
      * Mengupdate Data (Update)
      */
+// app/Http/Controllers/Web/KinerjaWebController.php
+
+public function editDetail($id)
+{
+    // Mengambil data lengkap termasuk indikator tanpa mempedulikan status
+    $data = PohonKinerja::with('indikators')->find($id);
+
+    if (!$data) {
+        return response()->json(['message' => 'Data tidak ditemukan'], 404);
+    }
+
+    return response()->json($data);
+}
     public function update(Request $request, $id)
     {
         $node = PohonKinerja::findOrFail($id);
@@ -144,40 +259,5 @@ class KinerjaWebController extends Controller
             DB::rollBack();
             return response()->json(['status' => 'error', 'message' => $e->getMessage()], 500);
         }
-    }
-
-    /**
-     * Proses Approval (Setuju/Tolak)
-     */
-    public function approval(Request $request, $id)
-    {
-        // Pastikan hanya role tertentu yang bisa akses (Middleware atau cek manual)
-        // if (Auth::user()->peran != 'sekretariat') abort(403);
-
-        $node = PohonKinerja::findOrFail($id);
-        
-        $statusBaru = ($request->action == 'setuju') ? 'disetujui' : 'ditolak';
-        $catatan = ($request->action == 'tolak') ? $request->catatan : null;
-
-        $node->update([
-            'status' => $statusBaru,
-            'catatan_penolakan' => $catatan
-        ]);
-
-        return response()->json(['status' => 'success', 'message' => 'Status berhasil diperbarui menjadi ' . $statusBaru]);
-    }
-
-    /**
-     * Hapus Data (Delete)
-     */
-    public function destroy($id)
-    {
-        $node = PohonKinerja::findOrFail($id);
-        
-        // Karena kita pakai onDelete('cascade') di migration,
-        // Menghapus pohon akan otomatis menghapus indikator & anak-anaknya.
-        $node->delete();
-
-        return response()->json(['status' => 'success', 'message' => 'Data berhasil dihapus']);
     }
 }

@@ -191,6 +191,52 @@
                 }
             });
         });
+$(document).ready(function() {
+    const idPohon = "{{ $subKegiatan->id }}"; // Diambil dari variabel Controller
+
+    function autoFillAILogic() {
+        // Berikan feedback visual bahwa AI sedang bekerja
+        $('textarea').addClass('bg-light').val('Sedang memproses narasi otomatis...');
+
+        fetch(`/kinerja/api/sub-detail/${idPohon}`) // Mengambil data dari Service Kinerja
+            .then(response => response.json())
+            .then(data => {
+                $('textarea').removeClass('bg-light');
+
+                // 1. AUTO-FILL JUDUL
+                $('input[name="judul_kak"]').val(`Penyelenggaraan ${data.nama_kinerja} Tahun 2025`);
+
+                // 2. AI GENERATED LATAR BELAKANG
+                let narasiLatar = `Sehubungan dengan pelaksanaan program strategis di lingkungan Pemerintah Provinsi Kalimantan Barat, kegiatan "${data.nama_kinerja}" menjadi prioritas untuk dilaksanakan. \n\n`;
+                narasiLatar += `Hal ini didasarkan pada kebutuhan untuk mencapai target kinerja berikut:\n`;
+                
+                data.indikators.forEach(ind => {
+                    narasiLatar += `- Tercapainya ${ind.indikator} dengan target ${ind.target} ${ind.satuan}.\n`;
+                });
+                
+                narasiLatar += `\nTanpa adanya kegiatan ini, dikhawatirkan pemenuhan standar pelayanan pada unit kerja akan terhambat.`;
+                $('textarea[name="latar_belakang"]').val(narasiLatar);
+
+                // 3. AI GENERATED MAKSUD & TUJUAN
+                let narasiMaksud = `Maksud dari kegiatan ini adalah untuk mengoptimalisasi ${data.nama_kinerja}. \n\n`;
+                narasiMaksud += `Tujuannya adalah menyediakan kerangka teknis yang terukur bagi ${data.penanggung_jawab ?? 'unit kerja'} dalam mengelola sumber daya secara efektif.`;
+                $('textarea[name="maksud_tujuan"]').val(narasiMaksud);
+
+                // 4. AI GENERATED SASARAN
+                let narasiSasaran = `Tersedianya output berupa laporan dan dokumentasi pelaksanaan ${data.nama_kinerja} yang akuntabel sesuai dengan indikator "${data.indikators[0]?.indikator ?? 'kinerja'}".`;
+                $('textarea[name="sasaran"]').val(narasiSasaran);
+
+                // 5. DEFAULT VALUE LAINNYA
+                $('input[name="lokasi"]').val('Pontianak, Kalimantan Barat');
+                $('input[name="penerima_manfaat"]').val('ASN dan Masyarakat Umum');
+            })
+            .catch(error => console.error('Gagal menjalankan AI Auto-fill:', error));
+    }
+
+    // Jalankan otomatis saat halaman terbuka
+    autoFillAILogic();
+});
+
     </script>
 </body>
 </html>

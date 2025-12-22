@@ -1,60 +1,112 @@
 <?php
 
-namespace App\Http\Controllers\Web;
+namespace App\Http\Controllers\Api\Kinerja;
 
 use App\Http\Controllers\Controller;
-use Illuminate\Http\Request;
-use Illuminate\Support\Facades\Auth;
 use App\Models\Kinerja\PohonKinerja;
+use Illuminate\Http\Request;
+use Illuminate\Support\Facades\Log;
+use Illuminate\Database\Eloquent\ModelNotFoundException; // Tambahkan ini
 
 class PohonKinerjaController extends Controller
 {
-    public function index()
+    /**
+     * Menampilkan daftar Pohon Kinerja (termasuk hirarki anak).
+     * SOLUSI PERFORMA: Menggunakan Nested Eager Loading untuk mengatasi N+1 Query.
+     */
+
+
+    /**
+     * Menyimpan node baru Pohon Kinerja.
+     */
+    public function store(Request $request)
     {
-        $user = Auth::user();
+        $validated = $request->validate([
+            'nama_kinerja' => 'required|string',
+            'jenis_kinerja' => 'required|in:visi,misi,tujuan,sasaran_strategis,sasaran,program,kegiatan,sub_kegiatan',
+            'id_perangkat_daerah' => 'required|integer', 
+            'id_penanggung_jawab' => 'required|integer', 
+            'id_induk' => 'nullable|exists:pohon_kinerja,id', 
+        ]);
 
-        // LOGIKA FILTERING
-        if ($user->peran === 'admin_utama') {
-            // CASE 1: GUBERNUR / ADMIN
-            // Tampilkan dari Akar (Visi) -> Misi -> Sasaran Daerah -> Semua OPD
-            // Kita ambil yang parent_id nya NULL (Visi)
-            $pohons = PohonKinerja::whereNull('parent_id')
-                        ->with('children.children.children.children') // Eager Load berlevel-level biar ringan
-                        ->get();
-            
-            $viewTitle = 'Pohon Kinerja Pemerintah Provinsi (Full View)';
+        $pohon = PohonKinerja::create($validated);
+        return response()->json(['message' => 'Pohon Kinerja berhasil ditambahkan', 'data' => $pohon], 201);
+    }
+    
+    /**
+     * Menampilkan detail satu node.
+     */
+    public function show($id)
+    {
+        try {
+            // Mengambil detail node dengan semua relasi penting
+            $node = PohonKinerja::with(['induk', 'anak', 'indikatorKinerja'])->findOrFail($id);
 
-        } else {
-            // CASE 2: KEPALA DINAS / STAF
-            // Hanya tampilkan node yang opd_id nya sama dengan user
-            // Biasanya dimulai dari 'Sasaran OPD' atau 'Program' yang dimiliki OPD tersebut
-            // Kita cari node milik OPD ini yang induknya BUKAN milik OPD ini (Top Level-nya OPD)
-            
-            $pohons = PohonKinerja::where('opd_id', $user->id_perangkat_daerah)
-                        ->whereHas('parent', function($q) use ($user) {
-                            // Cari yang bapaknya BUKAN OPD ini (misal bapaknya Sasaran Daerah/Pemprov)
-                            $q->where('opd_id', '!=', $user->id_perangkat_daerah)
-                              ->orWhereNull('opd_id');
-                        })
-                        ->with('children.children.children')
-                        ->get();
+            return response()->json([
+                'status' => 'success',
+                'message' => 'Detail node kinerja berhasil dimuat.',
+                'data' => $node
+            ]);
 
-            // Fallback: Jika query di atas kosong (mungkin datanya belum link ke pemprov), 
-            // ambil saja semua root yang punya opd_id ini
-            if ($pohons->isEmpty()) {
-                 $pohons = PohonKinerja::where('opd_id', $user->id_perangkat_daerah)
-                            ->where(function($q) {
-                                // Ambil yang jenisnya Sasaran OPD atau Program (level atas dinas)
-                                $q->where('jenis_kinerja', 'sasaran_opd')
-                                  ->orWhere('jenis_kinerja', 'program');
-                            })
-                            ->with('children.children')
-                            ->get();
+        } catch (ModelNotFoundException $e) {
+            return response()->json(['status' => 'error', 'message' => 'Node kinerja tidak ditemukan.'], 404);
+        } catch (\Exception $e) {
+             Log::error('API Kinerja Show Error: ' . $e->getMessage());
+            return response()->json(['status' => 'error', 'message' => 'Gagal memuat detail node.'], 500);
+        }
+    }
+    
+    public function syncFromRka()
+    {
+        // 1. Ambil semua RKA yang statusnya 'disetujui' dari rka_main
+        $rkaDisetujui = Rka::where('status_anggaran', 'disetujui')->get();
+
+        $count = 0;
+        foreach ($rkaDisetujui as $item) {
+            // 2. Cek apakah data ini sudah pernah di-sync ke pengadaan sebelumnya agar tidak duplikat
+            $exists = Pengadaan::where('rka_id', $item->id)->exists();
+
+            if (!$exists) {
+                DB::transaction(function () use ($item) {
+                    // 3. Ambil data perencanaan untuk mendapatkan target_volume
+                    $kak = RkaPerencanaan::with('rincianBelanja')->where('kak_id', $item->kak_id)->first();
+
+                    // 4. Buat Header Pengadaan
+                    $pengadaan = Pengadaan::create([
+                        'rka_id'           => $item->id,
+                        'kak_id'           => $item->kak_id,
+                        'target_volume'    => $kak ? $kak->rincianBelanja->sum('volume') : 0,
+                        'status_pengadaan' => 'berjalan', // Status awal
+                    ]);
+
+                    // 5. Otomatis buat 9 baris checklist dokumen
+                    $listDokumen = [
+                        'Spesifikasi Teknis', 'HPS', 'Nota Dinas Pengajuan', 
+                        'Surat Pesanan/Kontrak', 'SPMK', 'Laporan Progres', 
+                        'Berita Acara Pemeriksaan', 'BAST (Serah Terima)', 'Bukti Pembayaran'
+                    ];
+
+                    foreach ($listDokumen as $index => $nama) {
+                        PengadaanDocument::create([
+                            'pengadaan_id'   => $pengadaan->id,
+                            'urutan_dokumen' => $index + 1,
+                            'nama_dokumen'   => $nama,
+                        ]);
+                    }
+                });
+                $count++;
             }
-
-            $viewTitle = 'Pohon Kinerja Perangkat Daerah';
         }
 
-        return view('kinerja.pohon.index', compact('pohons', 'viewTitle'));
+        return redirect()->back()->with('success', "$count data RKA baru berhasil disinkronkan ke Modul Pengadaan.");
     }
+
+    public function index()
+    {
+        // Menampilkan daftar paket pengadaan yang sudah ditarik
+        $daftarPengadaan = Pengadaan::with(['rka', 'rkaPerencanaan'])->get();
+        return view('pengadaan.index', compact('daftarPengadaan'));
+    }
+    // Anda dapat menambahkan method update, destroy, ajukan, dan review di sini.
+    // ...
 }

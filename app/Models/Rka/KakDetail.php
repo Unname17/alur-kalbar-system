@@ -1,27 +1,31 @@
 <?php
+
 namespace App\Models\Rka;
 
 use Illuminate\Database\Eloquent\Model;
-use App\Models\Kak\Kak;
+use App\Models\Kak\Kak; // Relasi ke Modul Perencanaan
 
 class KakDetail extends Model
 {
+    // Menggunakan koneksi database anggaran
     protected $connection = 'modul_anggaran';
+
+    // Menghubungkan ke tabel yang Anda buat di migration
     protected $table = 'kak_details';
-    protected $fillable = ['kak_id', 'ssh_id', 'nama_barang', 'volume', 'satuan', 'harga_satuan', 'total_harga', 'is_manual','is_verified'];
+
+    // Mengizinkan pengisian masal
+    protected $guarded = [];
 
     /**
-     * Relasi ke Tabel KAK (Parent)
-     * Setiap detail belanja pasti milik satu KAK
+     * Relasi ke Header KAK (Modul Perencanaan)
      */
     public function kak()
     {
-        // Parameter 2: 'kak_id' adalah nama kolom foreign key di tabel kak_details
         return $this->belongsTo(Kak::class, 'kak_id');
     }
 
     /**
-     * Tambahan: Relasi ke SSH (Opsional, barangkali nanti butuh)
+     * Relasi ke Master SSH (Katalog Barang)
      */
     public function ssh()
     {

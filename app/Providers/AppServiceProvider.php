@@ -15,8 +15,9 @@ class AppServiceProvider extends ServiceProvider
     public function boot(): void
     {
 // Pastikan blok ini ada!
-    if($this->app->environment('production') || !empty($_SERVER['HTTP_X_FORWARDED_HOST'])) {
-        \Illuminate\Support\Facades\URL::forceScheme('https');
+        // Menggunakan PROTO lebih akurat untuk mendeteksi HTTPS dari tunnel
+    if ($this->app->environment('production') || (isset($_SERVER['HTTP_X_FORWARDED_PROTO']) && $_SERVER['HTTP_X_FORWARDED_PROTO'] === 'https')) {
+        URL::forceScheme('https');
     }
     }
 }

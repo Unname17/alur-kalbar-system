@@ -3,46 +3,99 @@
 namespace App\Http\Controllers\Web;
 
 use App\Http\Controllers\Controller;
+use Illuminate\Support\Facades\Http; // Wajib import untuk API call
 use Illuminate\Http\Request;
-use App\Models\Kak\Kak;            // Model KAK
+use App\Models\Rka\RkaPerencanaan;
 use App\Models\Rka\MasterSsh;      // Model Katalog SSH
 use App\Models\Rka\KakDetail;      // Model Rincian Belanja
 use Maatwebsite\Excel\Facades\Excel; // <--- WAJIB ADA DI SINI (LUAR CLASS)
 use App\Imports\RkaImport;         // <--- Import Class yang akan kita buat
 use App\Exports\RkaTemplateExport; // <--- TAMBAHKAN INI
 use Illuminate\Support\Facades\Auth; // <--- Pastikan ada ini
+use App\Models\Rka\Rka; // Tambahkan ini di deretan 'use'
 
 class RkaController extends Controller
 {
-    // 1. Halaman Pilih KAK (Level 1)
-    public function pilihKak()
-    {
-        // --- LOGIKA REDIRECT ROLE ---
-        $user = Auth::user();
+    // app/Http/Controllers/Web/RkaController.php
 
-        // Cek kolom 'peran' di tabel pengguna
-        if ($user->peran == 'sekretariat') {
-            // Jika Sekretariat, lempar ke halaman Verifikasi
-            return redirect()->route('verifikasi.index');
-        }
+    // app/Http/Controllers/Web/RkaController.php
 
-        // --- LOGIKA USER BIASA (KE BAWAH SINI) ---
-        // Jika bukan sekretariat, dia akan lanjut membuka halaman Pilih KAK
-        $listKak = Kak::with('pohonKinerja')
-                      ->where('status', 2) // Hanya yang disetujui
-                      ->get();
-                      
-        return view('rka.pilih_kak', compact('listKak'));
+// app/Http/Controllers/Web/RkaController.php
+
+public function syncAllFromKak()
+{
+    // 1. Ambil semua KAK yang sudah disetujui (Status 2) dari database KAK
+    $kaks = \App\Models\Kak\Kak::on('modul_kak')->where('status', 2)->get();
+
+    if ($kaks->isEmpty()) {
+        return back()->with('error', 'Tidak ada data KAK baru untuk disinkronkan.');
     }
+
+    // 2. Lakukan perulangan untuk menyimpan ke tabel lokal rka_perencanaan
+    foreach ($kaks as $kak) {
+        // Simpan ke Mirror Table Lokal
+        \App\Models\Rka\RkaPerencanaan::updateOrCreate(
+            ['kak_id' => $kak->id],
+            [
+                'judul_kak'    => $kak->judul_kak,
+                'kode_proyek'  => $kak->kode_proyek ?? '-',
+                'nama_pembuat' => $kak->user->nama_lengkap ?? 'User',
+                'status_internal' => 'baru', // Status awal di Modul RKA
+                'updated_at'   => now(),
+            ]
+        );
+
+        // Pastikan Header RKA juga terbuat
+        \App\Models\Rka\Rka::updateOrCreate(
+            ['kak_id' => $kak->id],
+            ['status_anggaran' => 'draft']
+        );
+    }
+
+    return back()->with('success', count($kaks) . ' data KAK berhasil disinkronkan ke Modul RKA.');
+}
+
+// app/Http/Controllers/Web/RkaController.php
+
+public function pilihKak()
+{
+    $user = Auth::user();
+    if ($user->peran == 'sekretariat') {
+        return redirect()->route('verifikasi.index');
+    }
+
+// Ambil data lokal untuk cek mana yang sudah ditarik
+    $localKaks = \App\Models\Rka\RkaPerencanaan::all();
+
+    // Ambil semua KAK yang disetujui dari database perencanaan
+    $listKak = \App\Models\Kak\Kak::on('modul_kak')
+                  ->with('pohonKinerja')
+                  ->where('status', 2) 
+                  ->get();
+
+    return view('rka.pilih_kak', compact('localKaks', 'listKak'));
+}
 
     // 2. Halaman Belanja (Level 2)
-    public function index($kak_id)
-    {
-        $kak = Kak::with('rincianBelanja')->where('status', 2)->findOrFail($kak_id);
-        $katalog = MasterSsh::orderBy('nama_barang', 'asc')->get();
-        
-        return view('rka.index', compact('kak', 'katalog'));
-    }
+    // app/Http/Controllers/Web/RkaController.php
+
+public function index($kak_id)
+{
+    /** * SEKARANG: Ambil data dari tabel lokal rka_perencanaan, bukan dari database KAK.
+     * Ini memastikan Modul RKA bekerja secara mandiri.
+     */
+    $kak = \App\Models\Rka\RkaPerencanaan::where('kak_id', $kak_id)->firstOrFail();
+
+    /** * Karena rincian_belanja (KakDetail) memang berada di database modul_anggaran, 
+     * kita bisa langsung mengambilnya lewat relasi atau query manual.
+     */
+    $rincian = \App\Models\Rka\KakDetail::where('kak_id', $kak_id)->get();
+
+    // Ambil katalog SSH untuk keperluan input belanja
+    $katalog = \App\Models\Rka\MasterSsh::orderBy('nama_barang', 'asc')->get();
+    
+    return view('rka.index', compact('kak', 'rincian', 'katalog'));
+}
 
     // 3. Simpan Item (Bisa dari Katalog SSH atau Manual)
     public function store(Request $request, $kak_id)
@@ -159,35 +212,60 @@ class RkaController extends Controller
         // Ini akan membuat file Excel secara otomatis saat diklik
         return Excel::download(new RkaTemplateExport, 'template_rka.xlsx');
     }
+    // app/Http/Controllers/Web/RkaController.php
+
+
     /**
      * Kunci RKA dan Kirim ke Sekretariat
      */
-    public function finalisasi($kak_id)
-    {
-        $kak = Kak::findOrFail($kak_id);
+    // app/Http/Controllers/Web/RkaController.php
 
-        // 1. Cek apakah masih ada usulan manual yang Pending (Status 1)
-        // Kita tidak boleh membiarkan finalisasi jika masih ada item menggantung
-        $pendingItems = KakDetail::where('kak_id', $kak_id)
-                        ->where('is_manual', 1)
-                        ->where('is_verified', 1) // 1 = Pending
-                        ->exists();
+public function finalisasi($kak_id)
+{
+    // 1. Ambil data dari tabel lokal rka_perencanaan
+    $kak = \App\Models\Rka\RkaPerencanaan::where('kak_id', $kak_id)->firstOrFail();
 
-        if ($pendingItems) {
-            return back()->with('error', 'Gagal Finalisasi! Masih ada usulan item manual yang menunggu verifikasi admin. Harap tunggu atau hapus item tersebut.');
-        }
+    /** * 2. PERBAIKAN VALIDASI:
+     * Cukup cek apakah ada rincian belanja yang sudah diinput.
+     * Kita tidak perlu filter 'status_anggaran' di sini karena kolom itu tidak ada di kak_details.
+     */
+    $itemCount = $kak->rincianBelanja()->count();
 
-        // 2. Cek apakah keranjang belanja kosong
-        if ($kak->rincianBelanja()->count() == 0) {
-            return back()->with('error', 'RKA masih kosong. Silakan isi rincian belanja terlebih dahulu.');
-        }
-
-        // 3. Update Status KAK (Misal: 3 = Menunggu Verifikasi RKA)
-        // Pastikan Anda menyesuaikan logika status ini dengan sistem Anda
-        $kak->update([
-            'status' => 3 
-        ]);
-
-        return redirect()->route('rka.pilih_kak')->with('success', 'RKA Berhasil difinalisasi dan dikirim ke Sekretariat.');
+    if ($itemCount == 0) {
+        return back()->with('error', 'Gagal Finalisasi! Anda belum menginput rincian belanja sama sekali.');
     }
+
+    /**
+     * 3. Update Status Internal di Modul Anggaran (Tabel Lokal)
+     * Ini akan mengirim data ke verifikasi Sekretariat.
+     */
+    $kak->update([
+        'status_internal' => 'pengajuan',
+        'updated_at' => now(),
+    ]);
+
+    // Update juga di tabel rka_main agar statusnya sinkron
+    \App\Models\Rka\Rka::where('kak_id', $kak_id)->update([
+        'status_anggaran' => 'pengajuan'
+    ]);
+
+    return redirect()->route('rka.pilih_kak')->with('success', 'RKA berhasil diajukan ke Sekretariat.');
+}
+
+// app/Http/Controllers/Web/RkaController.php
+
+public function cetak($kak_id)
+{
+    // 1. Ambil data Header RKA dari rka_main
+    // Kita gunakan rka_id yang sudah dibinding di RkaVerifikasiController
+    $rka = \App\Models\Rka\Rka::where('kak_id', $kak_id)->firstOrFail();
+    
+    // 2. Ambil rincian belanja yang sudah mengakar ke rka_id tersebut
+    $rincian = \App\Models\Rka\KakDetail::where('rka_id', $rka->id)->get();
+    
+    // 3. Ambil informasi KAK dari tabel mirror lokal
+    $kak = \App\Models\Rka\RkaPerencanaan::where('kak_id', $kak_id)->firstOrFail();
+
+    return view('rka.cetak', compact('rka', 'rincian', 'kak'));
+}
 }
