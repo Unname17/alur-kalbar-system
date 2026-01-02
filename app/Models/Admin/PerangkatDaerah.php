@@ -2,28 +2,29 @@
 namespace App\Models\Admin;
 
 use Illuminate\Database\Eloquent\Model;
-use Illuminate\Database\Eloquent\Relations\HasMany;
 
 class PerangkatDaerah extends Model
 {
-    protected $connection = 'sistem_admin'; 
-    protected $table = 'perangkat_daerah'; 
-    protected $guarded = [];
+    protected $connection = 'sistem_admin';
+    protected $table = 'perangkat_daerah';
 
-    /**
-     * Relasi: Satu Perangkat Daerah memiliki banyak Pengguna
-     */
-    public function penggunas(): HasMany
+    protected $fillable = ['kode_pd', 'nama_pd', 'singkatan'];
+
+    // Relasi: Satu Dinas memiliki banyak Bidang
+    public function bidang()
     {
-        return $this->hasMany(Pengguna::class, 'id_perangkat_daerah');
+        return $this->hasMany(Bidang::class, 'pd_id');
     }
 
-    /**
-     * Helper: Mengecek apakah OPD ini sedang diizinkan menginput data
-     * Sesuai arahan validator Bappeda di transkripsi
-     */
-    public function isInputOpen(): bool
+    // Relasi: Satu Dinas memiliki banyak Pengguna
+    public function users()
     {
-        return $this->status_input === 'buka';
+        return $this->hasMany(User::class, 'pd_id');
+    }
+    public function accessSetting()
+    {
+        // Gunakan \App\Models\Kinerja\AccessSetting secara langsung 
+        // agar tidak terjadi salah pencarian folder
+        return $this->hasOne(\App\Models\Kinerja\AccessSetting::class, 'pd_id', 'id');
     }
 }

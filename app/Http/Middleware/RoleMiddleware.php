@@ -19,9 +19,11 @@ class RoleMiddleware
         $user = Auth::user();
 
         // Cek apakah peran user ada dalam daftar role yang diizinkan
-        if (in_array($user->peran, $roles)) {
-            return $next($request);
-        }
+$userRole = strtolower($user->role->name ?? ''); 
+
+    if (in_array($userRole, array_map('strtolower', $roles))) {
+        return $next($request);
+    }
 
         // Jika tidak punya akses, arahkan kembali atau beri error 403
         abort(403, 'Anda tidak memiliki hak akses untuk halaman ini.');

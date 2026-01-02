@@ -1,263 +1,155 @@
 <?php
 
 namespace App\Http\Controllers\Web;
-use Illuminate\Support\Facades\DB;
 
 use App\Http\Controllers\Controller;
+use App\Helpers\LogKinerja; // <--- Import Helper
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Auth;
-use App\Models\Kinerja\PohonKinerja;
+use Illuminate\Support\Facades\Http;
+use Illuminate\Support\Facades\DB;   
+use Illuminate\Support\Facades\Log;
+use Symfony\Component\DomCrawler\Crawler;
+
+// Import Models Lengkap (Koneksi modul_kinerja)
+use App\Models\Kinerja\Vision;
+use App\Models\Kinerja\Mission;
+use App\Models\Kinerja\Goal;
+use App\Models\Kinerja\SasaranStrategis;
+use App\Models\Kinerja\Program;
+use App\Models\Kinerja\Activity;
+use App\Models\Kinerja\SubActivity;
+use App\Models\Kinerja\AccessSetting;
 
 class KinerjaWebController extends Controller
 {
     /**
-     * Menampilkan Halaman Utama Pohon Kinerja
-     * Mengatasi error "Call to undefined method showPohonKinerja"
+     * Halaman Dashboard Utama (Unified Dashboard)
      */
-        public function showPohonKinerja()
-        {
-            $parents = collect(); 
-            $opds = collect();
-            $allUsers = collect();
-            $user = Auth::user();
-            // 1. Tentukan Hak Akses Pohon
-            $isValidator = in_array($user->peran, ['admin_utama', 'sekretariat', 'validator_bappeda']);
-            
-            // LOGIKA BARU: Jika validator, tampilkan semua yang ditolak. Jika bukan, filter per OPD
-    $rejected = PohonKinerja::where('status', 'ditolak')
-        ->with('indikators')
-        ->when(!$isValidator, function($q) use ($user) {
-            return $q->where('opd_id', $user->opd_id);
-        })->get();
-            // 1. Ambil data Inbox (Khusus status 'pengajuan')
-            // $inbox = PohonKinerja::where('status', 'pengajuan')
-            //             ->with('indikators')
-            //             ->when(!$isValidator, function($q) use ($user) {
-            //                 return $q->where('opd_id', $user->opd_id);
-            //             })->get();
-            $inbox = PohonKinerja::where('status', 'pengajuan')
-            ->with('indikators')
-            ->when(!$isValidator, function($q) use ($user) {
-                return $q->where('opd_id', $user->id_perangkat_daerah);
-            })->get();
-            
-            
-            if ($isValidator) {
-                // Validator melihat dari akar (Visi) untuk SEMUA OPD
-                $pohons = PohonKinerja::whereNull('parent_id')
-                    ->with(['indikators', 'children.children.children.children.children']) 
-                    ->get();
-        
-        // PERBAIKAN: Tambahkan groupBy di sini agar struktur sama dengan role OPD
-        $parents = PohonKinerja::all()->groupBy('jenis_kinerja'); 
-        
-        $opds = DB::connection('sistem_admin')->table('perangkat_daerah')->get();
-        $allUsers = DB::connection('sistem_admin')->table('pengguna')
-                    ->join('perangkat_daerah', 'pengguna.id_perangkat_daerah', '=', 'perangkat_daerah.id')
-                    ->select('pengguna.*', 'perangkat_daerah.nama_perangkat_daerah')
-                    ->get();
-        
-        // SINKRONISASI NAMA: Ganti allUsers menjadi opds agar sesuai dengan foreach di view
-        $opds = DB::connection('sistem_admin')->table('perangkat_daerah')->get();
-            } else {
-                // User OPD hanya melihat cabang miliknya sendiri
-                // 1. Tampilan Visual (Hanya ambil level teratas, sisanya via 'with')
-                // 1. Ambil data VISUAL (5 Kotak di jalur pertama)
-        $pohons = PohonKinerja::where('opd_id', $user->id_perangkat_daerah)
-                    ->where('jenis_kinerja', 'sasaran_opd')
-                    ->with(['children.children.children.children']) // Load semua level
-                    ->get();
-
-        // 2. Ambil data DROPDOWN (Sinkronkan agar hanya 5 data jalur tersebut)
-        // Kita filter hanya jalur [01] agar tidak muncul puluhan data seeder lainnya
-        $parents = PohonKinerja::where('opd_id', $user->id_perangkat_daerah)
-                    ->where('nama_kinerja', 'LIKE', '%[01]%') // Filter agar hanya jalur yang tampil di visual
-                    ->get()
-                    ->groupBy('jenis_kinerja'); // Dikelompokkan untuk UI yang rapi
-            }
-
-            // 2. Data Pengguna untuk Fitur Kunci Pengguna (Ditarik dari DB Admin)
-            $allUsers = collect();
-            if ($isValidator) {
-                $allUsers = DB::connection('sistem_admin')->table('pengguna')
-                            ->join('perangkat_daerah', 'pengguna.id_perangkat_daerah', '=', 'perangkat_daerah.id')
-                            ->select('pengguna.*', 'perangkat_daerah.nama_perangkat_daerah')
-                            ->get();
-            }
-
-            return view('kinerja.pohon.index', [
-                'viewTitle' => 'Pohon Kinerja Visual',
-                'pohons' => $pohons,
-                'inbox' => $inbox, 
-                'parents' => $parents, 
-                'opds' => $opds,       
-                'allUsers' => $allUsers, // Untuk fitur Kunci Pengguna
-                'rejected' => $rejected, // PASTIKAN VARIABEL INI DIKIRIM
-                'isValidator' => $isValidator
-            ]);
-        }
-
-public function getApiDetail($id)
-{
-    // Mengambil data yang sudah DISETUJUI oleh Bappeda
-    $data = \App\Models\Kinerja\PohonKinerja::with('indikators')
-            ->where('id', $id)
-            ->where('status', 'disetujui') 
-            ->first();
-
-    if (!$data) {
-        return response()->json(['message' => 'Data tidak ditemukan atau belum divalidasi'], 404);
-    }
-
-    // Mengembalikan data JSON untuk dikonsumsi Modul KAK
-    return response()->json([
-        'nama_kinerja' => $data->nama_kinerja,
-        'anggaran'     => $data->anggaran,
-        'pj'           => $data->penanggung_jawab,
-        'indikators'   => $data->indikators, // Menarik target & satuan otomatis
-    ]);
-}
-
-        public function approval(Request $request, $id)
+    public function index()
     {
-        $node = PohonKinerja::findOrFail($id);
+        $user = Auth::user();
+        $pd_id = $user->pd_id;
+        $role = strtolower($user->role->name ?? '');
+        $isBappeda = ($role === 'bappeda');
         
-        // Cek jika user mencentang "Setujui Seluruh Ranting"
-        $isBulk = $request->has('bulk') && $request->bulk == "1";
 
-        if ($isBulk && $request->action == 'setuju') {
-            // Validasi rekursif ke bawah (Massal)
-            $this->approveRecursive($id);
-            $message = 'Satu pohon kinerja berhasil disetujui secara massal.';
+        // 1. LOGIKA STATISTIK DINAMIS
+        if ($isBappeda) {
+            // Bappeda: Statistik Global (Seluruh OPD)
+            $stats = [
+                'tujuan'       => Goal::on('modul_kinerja')->count(),
+                'program'      => Program::on('modul_kinerja')->count(),
+                'kegiatan'     => Activity::on('modul_kinerja')->count(),
+                'sub_kegiatan' => SubActivity::on('modul_kinerja')->count(),
+            ];
+
+            // Bappeda: Pohon dimulai dari Visi
+            $treeData = Vision::on('modul_kinerja')
+                ->with(['missions.goals.sasaranStrategis.programs.activities.subActivities'])
+                ->where('is_active', true)->get();
+            $startType = 'visi';
         } else {
-            // Validasi Satuan
-            $node->update([
-                'status' => ($request->action == 'setuju') ? 'disetujui' : 'ditolak',
-                'catatan_penolakan' => $request->catatan
-            ]);
-            $message = 'Status inputan berhasil diperbarui.';
+            // OPD: Statistik Internal (Filter by pd_id)
+            $stats = [
+                'tujuan' => Goal::on('modul_kinerja')->where('pd_id', $pd_id)->count(),
+                'program' => Program::on('modul_kinerja')
+                    ->whereHas('sasaranStrategis.goal', function($q) use ($pd_id) { $q->where('pd_id', $pd_id); })->count(),
+                'kegiatan' => Activity::on('modul_kinerja')
+                    ->whereHas('program.sasaranStrategis.goal', function($q) use ($pd_id) { $q->where('pd_id', $pd_id); })->count(),
+                'sub_kegiatan' => SubActivity::on('modul_kinerja')
+                    ->whereHas('activity.program.sasaranStrategis.goal', function($q) use ($pd_id) { $q->where('pd_id', $pd_id); })->count(),
+            ];
+
+            // OPD: Pohon dimulai langsung dari TUJUAN PD [Perubahan Krusial]
+            $treeData = Goal::on('modul_kinerja')
+                ->where('pd_id', $pd_id)
+                ->with(['sasaranStrategis.programs.activities.subActivities'])
+                ->get();
+            $startType = 'tujuan';
         }
 
-        return response()->json(['status' => 'success', 'message' => $message]);
-    }
+        $lockData = AccessSetting::on('modul_kinerja')->where('pd_id', $pd_id)->first();
+        $is_locked = $lockData ? (bool)$lockData->is_locked : false;
 
-    private function approveRecursive($parentId)
-    {
-        PohonKinerja::where('id', $parentId)->update(['status' => 'disetujui']);
-        $children = PohonKinerja::where('parent_id', $parentId)->get();
-        foreach ($children as $child) {
-            $this->approveRecursive($child->id);
-        }
-    }
-    public function store(Request $request)
-    {
-        // 1. Validasi Input
-        $request->validate([
-            'nama_kinerja' => 'required|string',
-            'parent_id'    => 'required|exists:modul_kinerja.pohon_kinerja,id',
-            'jenis_kinerja'=> 'required',
-            // Validasi Array Indikator
-            'indikator.*'  => 'nullable|string', 
-            'target.*'     => 'nullable',
-            'satuan.*'     => 'nullable',
-        ]);
-
-        DB::beginTransaction(); // Pakai Transaction biar aman
-        try {
-            // 2. Simpan Node Pohon Utama
-            $pohon = PohonKinerja::create([
-                'nama_kinerja'     => $request->nama_kinerja,
-                'parent_id'        => $request->parent_id,
-                'jenis_kinerja'    => $request->jenis_kinerja,
-                'opd_id'           => Auth::user()->opd_id, // Sesuaikan dengan kolom di tabel user Anda
-                'created_by'       => Auth::id(),
-                'status'           => 'pengajuan', // Default status pengajuan
-                'anggaran'         => $request->anggaran ?? 0,
-                'penanggung_jawab' => $request->penanggung_jawab,
-            ]);
-
-            // 3. Simpan Banyak Indikator (Looping)
-            if ($request->has('indikator')) {
-                foreach ($request->indikator as $key => $val) {
-                    // Hanya simpan jika teks indikator tidak kosong
-                    if (!empty($val)) {
-                        $pohon->indikators()->create([
-                            'indikator' => $val,
-                            'target'    => $request->target[$key] ?? '-',
-                            'satuan'    => $request->satuan[$key] ?? '-',
-                        ]);
-                    }
-                }
-            }
-
-            DB::commit();
-            return response()->json(['status' => 'success', 'message' => 'Data berhasil diajukan!']);
-        } catch (\Exception $e) {
-            DB::rollBack();
-            return response()->json(['status' => 'error', 'message' => 'Gagal: ' . $e->getMessage()], 500);
-        }
+        LogKinerja::record('ACCESS', 'Pengguna masuk ke Dashboard Kinerja');
+        // Gunakan variabel 'treeData' agar sinkron dengan JavaScript di View
+        return view('kinerja.opd.index', compact('stats', 'is_locked', 'treeData', 'isBappeda', 'startType'));
     }
 
     /**
-     * Mengupdate Data (Update)
+     * Menampilkan Visualisasi Pohon Kinerja Full
      */
-// app/Http/Controllers/Web/KinerjaWebController.php
-
-public function editDetail($id)
-{
-    // Mengambil data lengkap termasuk indikator tanpa mempedulikan status
-    $data = PohonKinerja::with('indikators')->find($id);
-
-    if (!$data) {
-        return response()->json(['message' => 'Data tidak ditemukan'], 404);
-    }
-
-    return response()->json($data);
-}
-    public function update(Request $request, $id)
+    public function showPohonKinerja()
     {
-        $node = PohonKinerja::findOrFail($id);
+        $user = Auth::user();
+        $pd_id = $user->pd_id;
+        $role = strtolower($user->role->name ?? '');
+        $isValidator = ($role === 'bappeda');
 
-        // Cek Hak Akses (Opsional: Hanya pembuat yang boleh edit jika status ditolak/draft)
-        if ($node->created_by != Auth::id() && Auth::user()->peran != 'admin_utama') {
-             // return response()->json(['status' => 'error', 'message' => 'Anda tidak berhak mengedit data ini.'], 403);
+        $lockData = AccessSetting::on('modul_kinerja')->where('pd_id', $pd_id)->first();
+        $is_locked = $lockData ? (bool)$lockData->is_locked : false;
+
+        // Logika pengambilan data sama dengan index untuk konsistensi
+        if ($isValidator) {
+            $treeData = Vision::on('modul_kinerja')
+                ->with(['missions.goals.sasaranStrategis.programs.activities.subActivities'])
+                ->where('is_active', true)
+                ->get();
+            $startType = 'visi';
+        } else {
+            $treeData = Goal::on('modul_kinerja')
+                ->where('pd_id', $pd_id)
+                ->with(['sasaranStrategis.programs.activities.subActivities'])
+                ->get();
+            $startType = 'tujuan';
         }
 
-        DB::beginTransaction();
+        // 'visions' tetap dikirim sebagai cadangan metadata periode
+        $visions = $isValidator ? $treeData : Vision::on('modul_kinerja')->where('is_active', true)->get();
+
+        return view('kinerja.pohon.pohon', compact('treeData', 'visions', 'isValidator', 'is_locked', 'startType'));
+    }
+
+    /**
+     * Fitur Sinkronisasi Visi-Misi Manual
+     */
+    public function syncVisiMisi()
+    {
         try {
-            // 1. Update Data Utama
-            $node->update([
-                'nama_kinerja'     => $request->nama_kinerja,
-                // parent_id & jenis_kinerja biasanya tidak diubah saat edit untuk menjaga struktur
-                'status'           => 'pengajuan', // Reset status jadi pengajuan lagi agar diperiksa ulang
-                'catatan_penolakan'=> null, // Hapus catatan penolakan lama
-                'anggaran'         => $request->anggaran ?? 0,
-                'penanggung_jawab' => $request->penanggung_jawab,
-                'updated_at'       => now()
-            ]);
+            $response = Http::withHeaders([
+                'User-Agent' => 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/91.0.4472.124 Safari/537.36'
+            ])->get('https://kalbarprov.go.id/profil/visi-misi/');
 
-            // 2. LOGIKA INDIKATOR: Hapus Semua Lama -> Input Semua Baru
-            // Ini lebih mudah daripada mengecek satu-satu mana yang berubah
-            $node->indikators()->delete();
+            if (!$response->successful()) return response()->json(['message' => 'Gagal terhubung ke website'], 500);
 
-            // 3. Input Ulang Indikator dari Form
-            if ($request->has('indikator')) {
-                foreach ($request->indikator as $key => $val) {
-                    if (!empty($val)) {
-                        $node->indikators()->create([
-                            'indikator' => $val,
-                            'target'    => $request->target[$key] ?? '-',
-                            'satuan'    => $request->satuan[$key] ?? '-',
-                        ]);
-                    }
+            $crawler = new Crawler($response->body());
+            $visiNode = $crawler->filter('.vision-text');
+            if ($visiNode->count() === 0) return response()->json(['message' => 'Selektor .vision-text tidak ditemukan'], 422);
+            $visiText = trim($visiNode->text(), ' "');
+
+            $misiNodes = $crawler->filter('.mission-container')->first()->filter('.mission-text');
+            $misiList = $misiNodes->each(fn(Crawler $node) => trim($node->text()));
+
+            DB::connection('modul_kinerja')->transaction(function () use ($visiText, $misiList) {
+                $vision = Vision::on('modul_kinerja')->updateOrCreate(
+                    ['is_active' => true],
+                    ['visi_text' => $visiText, 'tahun_awal' => 2025, 'tahun_akhir' => 2029]
+                );
+
+                Mission::on('modul_kinerja')->where('vision_id', $vision->id)->delete();
+                foreach ($misiList as $index => $text) {
+                    Mission::on('modul_kinerja')->create([
+                        'vision_id' => $vision->id,
+                        'nomor_misi' => $index + 1,
+                        'misi_text' => $text
+                    ]);
                 }
-            }
+            });
 
-            DB::commit();
-            return response()->json(['status' => 'success', 'message' => 'Perbaikan berhasil disimpan!']);
+            return response()->json(['message' => 'Sinkronisasi Berhasil!']);
         } catch (\Exception $e) {
-            DB::rollBack();
-            return response()->json(['status' => 'error', 'message' => $e->getMessage()], 500);
+            return response()->json(['message' => 'Error: ' . $e->getMessage()], 500);
         }
     }
 }

@@ -3,100 +3,74 @@
 namespace Database\Seeders;
 
 use Illuminate\Database\Seeder;
-use App\Models\Kinerja\PohonKinerja;
-use Illuminate\Support\Facades\DB;
+use App\Models\Kinerja\Vision;
+use App\Models\Kinerja\Mission;
+use App\Models\Kinerja\Goal;
+use App\Models\Kinerja\Program;
+use App\Models\Kinerja\Activity;
+use App\Models\Kinerja\SubActivity;
+use App\Models\Kinerja\PerformanceIndicator;
+use App\Models\Kinerja\AccessSetting;
 
 class PohonKinerjaSeeder extends Seeder
 {
-    public function run()
+    public function run(): void
     {
-        DB::connection('modul_kinerja')->statement('SET FOREIGN_KEY_CHECKS=0;');
-        PohonKinerja::on('modul_kinerja')->truncate();
-        DB::connection('modul_kinerja')->table('indikator_kinerja')->truncate();
-        DB::connection('modul_kinerja')->statement('SET FOREIGN_KEY_CHECKS=1;');
-
-        $allOpds = DB::connection('sistem_admin')->table('perangkat_daerah')->get();
-
-        DB::beginTransaction();
-        try {
-            $visi = $this->createNode(null, 'Mewujudkan Kalimantan Barat yang Sejahtera, Mandiri, dan Berdaya Saing', 'visi', null, 1);
-
-            $misiTexts = [
-                'Mewujudkan Tata Kelola Pemerintahan yang Berkualitas (Smart Province)',
-                'Meningkatkan Kualitas Sumber Daya Manusia yang Unggul',
-                'Mewujudkan Infrastruktur yang Adil dan Merata',
-                'Meningkatkan Pertumbuhan Ekonomi Berbasis Potensi Daerah',
-                'Mewujudkan Masyarakat yang Aman dan Toleran',
-                'Meningkatkan Kelestarian Lingkungan Hidup',
-                'Mewujudkan Tata Kelola Keuangan yang Akuntabel'
-            ];
-
-            foreach ($misiTexts as $index => $text) {
-                $misi = $this->createNode($visi->id, "Misi " . ($index + 1) . ": " . $text, 'misi', null, 1);
-
-                foreach ($allOpds as $opd) {
-                    if ($index == 0 || $opd->id % 7 == $index) {
-                        // Khusus OPD 5 (Diskominfo), buat 3 variasi sasaran untuk testing
-                        if ($opd->id == 5) {
-                            for ($i = 1; $i <= 3; $i++) {
-                                $this->seedCabangLengkap($misi->id, $opd->id, $opd->nama_perangkat_daerah, 1, $index . $i);
-                            }
-                        } else {
-                            $this->seedCabangLengkap($misi->id, $opd->id, $opd->nama_perangkat_daerah, 1, $index);
-                        }
-                    }
-                }
-            }
-
-            DB::commit();
-            echo "✅ Pohon Kinerja Berhasil Dibuat dengan variasi data.\n";
-        } catch (\Exception $e) {
-            DB::rollBack();
-            echo "❌ Gagal: " . $e->getMessage() . "\n";
-        }
-    }
-
-    private function seedCabangLengkap($parentId, $opdId, $namaOpd, $userId, $suffix)
-    {
-        $sasaran = $this->createNode($parentId, "[$suffix] Sasaran: Meningkatnya Pelayanan pada " . $namaOpd, 'sasaran_opd', $opdId, $userId);
-        
-        $program = $this->createNode($sasaran->id, "[$suffix] Program Pendukung Transformasi Digital " . $namaOpd, 'program', $opdId, $userId);
-        
-        $kegiatan = $this->createNode($program->id, "[$suffix] Kegiatan Tata Kelola IT", 'kegiatan', $opdId, $userId);
-        
-        // Sub Kegiatan dengan Anggaran Random
-        $randomAnggaran = rand(10, 90) * 10000000;
-        $sub = $this->createNode($kegiatan->id, "[$suffix] Sub-Kegiatan Operasional Teknis", 'sub_kegiatan', $opdId, $userId, $randomAnggaran, 'Kepala Bidang');
-        $this->addIndikator($sub, [["Indeks Kepuasan $suffix", rand(75, 90), "%"]]);
-
-        // Rencana Aksi
-        $rak = $this->createNode($sub->id, "[$suffix] Rencana Aksi: Monitoring Evaluasi Tahap $suffix", 'rencana_aksi', $opdId, $userId);
-        $this->addIndikator($rak, [["Jumlah Laporan $suffix", rand(1, 12), "Dokumen"]]);
-    }
-
-    private function createNode($parentId, $nama, $jenis, $opdId, $userId, $anggaran = 0, $pj = null)
-    {
-        return PohonKinerja::create([
-            'parent_id' => $parentId,
-            'nama_kinerja' => $nama,
-            'jenis_kinerja' => $jenis,
-            'opd_id' => $opdId,
-            'created_by' => $userId,
-            'anggaran' => $anggaran,
-            'penanggung_jawab' => $pj,
-            'status' => 'disetujui'
+        // 1. VISI TUNGGAL (Provinsi)
+        $vision = Vision::on('modul_kinerja')->create([
+            'tahun_awal'  => 2025,
+            'tahun_akhir' => 2029,
+            'visi_text'   => 'Terwujudnya Masyarakat Kalimantan Barat yang Sejahtera, Mandiri, dan Berdaya Saing',
+            'is_active'   => true,
         ]);
-    }
 
-    private function addIndikator($node, $indikators)
-    {
-        foreach ($indikators as $ind) {
-            // PERBAIKAN: Menggunakan kolom 'indikator' sesuai skema DB Anda
-            $node->indikators()->create([
-                'indikator' => $ind[0], 
-                'target'    => $ind[1], 
-                'satuan'    => $ind[2]
-            ]);
-        }
+        // 2. EMPAT MISI PROVINSI
+        $misi1 = Mission::on('modul_kinerja')->create([
+            'vision_id' => $vision->id, 'nomor_misi' => 1,
+            'misi_text' => 'Mewujudkan Tata Kelola Pemerintahan yang Bersih, Terbuka, dan Berbasis Teknologi Informasi'
+        ]);
+
+        Mission::on('modul_kinerja')->create([
+            'vision_id' => $vision->id, 'nomor_misi' => 2,
+            'misi_text' => 'Meningkatkan Kualitas Sumber Daya Manusia yang Berbudaya dan Berdaya Saing'
+        ]);
+
+        Mission::on('modul_kinerja')->create([
+            'vision_id' => $vision->id, 'nomor_misi' => 3,
+            'misi_text' => 'Mewujudkan Infrastruktur Dasar yang Adil dan Merata'
+        ]);
+
+        Mission::on('modul_kinerja')->create([
+            'vision_id' => $vision->id, 'nomor_misi' => 4,
+            'misi_text' => 'Meningkatkan Pertumbuhan Ekonomi Berbasis Potensi Unggulan Daerah'
+        ]);
+
+        // 3. TUJUAN (Contoh Cascading di Misi 1 - DISKOMINFO)
+        $goal = Goal::on('modul_kinerja')->create([
+            'mission_id'  => $misi1->id,
+            'pd_id'       => 1, 
+            'nama_tujuan' => 'Meningkatkan Kualitas Layanan Digital dan Keterbukaan Informasi Publik',
+        ]);
+
+        // ... (Lanjutkan Program, Kegiatan, Sub-Kegiatan seperti sebelumnya)
+        $program = Program::on('modul_kinerja')->create([
+            'goal_id' => $goal->id, 'nama_program' => 'Program Aplikasi Informatika'
+        ]);
+
+        $activity = Activity::on('modul_kinerja')->create([
+            'program_id' => $program->id, 'nama_kegiatan' => 'Pengembangan Ekosistem Digital'
+        ]);
+
+        $sub = SubActivity::on('modul_kinerja')->create([
+            'activity_id' => $activity->id, 'bidang_id' => 1, 'kode_sub' => '5.02.01',
+            'nama_sub' => 'Pemeliharaan Aplikasi Alur-Kalbar', 'created_by_nip' => '19900101', 'status' => 'approved'
+        ]);
+
+        PerformanceIndicator::on('modul_kinerja')->create([
+            'sub_activity_id' => $sub->id, 'nama_indikator' => 'Persentase Integrasi Modul',
+            'satuan' => 'Persen', 'klasifikasi' => 'IKK', 'baseline_2024' => 0, 'target_2025' => 100
+        ]);
+
+        AccessSetting::on('modul_kinerja')->updateOrCreate(['pd_id' => 1], ['is_locked' => false, 'updated_by_nip' => '19850101']);
     }
 }

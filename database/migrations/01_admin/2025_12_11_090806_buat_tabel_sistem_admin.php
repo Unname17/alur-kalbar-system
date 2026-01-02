@@ -6,46 +6,56 @@ use Illuminate\Support\Facades\Schema;
 
 return new class extends Migration
 {
-    protected $connection = 'sistem_admin'; 
+    protected $connection = 'sistem_admin';
 
     public function up()
     {
-        // 1. Tabel Perangkat Daerah
-        Schema::connection('sistem_admin')->create('perangkat_daerah', function (Blueprint $table) {
+        // Tabel Perangkat Daerah
+        Schema::connection($this->connection)->create('perangkat_daerah', function (Blueprint $table) {
             $table->id();
-            $table->string('nama_perangkat_daerah');
-            $table->string('kode_unit')->nullable();
-            $table->string('singkatan')->nullable();
-            // Kolom ini sudah ada di seeder Anda
-            $table->enum('status_input', ['buka', 'tutup'])->default('buka');
-            $table->enum('status_verifikasi', ['menunggu', 'disetujui', 'ditolak', 'revisi'])->default('menunggu');
-            $table->unsignedBigInteger('diverifikasi_oleh')->nullable();
-            $table->text('catatan_verifikasi')->nullable();
+            $table->string('kode_pd')->unique();
+            $table->string('nama_pd');
+            $table->string('singkatan', 50);
             $table->timestamps();
         });
 
-        // 2. Tabel Pengguna (PERBAIKAN: Tambahkan status_input di sini)
-        Schema::connection('sistem_admin')->create('pengguna', function (Blueprint $table) {
+        // Tabel Bidang
+        Schema::connection($this->connection)->create('bidang', function (Blueprint $table) {
             $table->id();
-            $table->unsignedBigInteger('id_perangkat_daerah');
+            $table->foreignId('pd_id')->constrained('perangkat_daerah')->onDelete('cascade');
+            $table->string('nama_bidang');
+            $table->string('kode_bidang');
+            $table->timestamps();
+        });
+
+        // Tabel Roles
+        Schema::connection($this->connection)->create('roles', function (Blueprint $table) {
+            $table->id();
+            $table->string('name')->unique();
+            $table->string('display_name');
+            $table->timestamps();
+        });
+
+        // Tabel Users (Login NIP)
+        Schema::connection($this->connection)->create('users', function (Blueprint $table) {
+            $table->id();
+            $table->string('nip', 20)->unique();
             $table->string('nama_lengkap');
-            $table->string('nip')->unique();
-            $table->string('kata_sandi');
-            $table->string('peran'); 
-            
-            // TAMBAHKAN KOLOM INI AGAR SEEDER BERHASIL
-            $table->enum('status_input', ['buka', 'tutup'])->default('buka'); 
-            
+            $table->string('password');
+            $table->foreignId('role_id')->constrained('roles');
+            $table->foreignId('pd_id')->constrained('perangkat_daerah');
+            $table->foreignId('bidang_id')->nullable()->constrained('bidang');
+            $table->boolean('is_active')->default(true);
             $table->rememberToken();
             $table->timestamps();
-
-            $table->foreign('id_perangkat_daerah')->references('id')->on('perangkat_daerah')->onDelete('cascade');
         });
     }
 
     public function down()
     {
-        Schema::connection('sistem_admin')->dropIfExists('pengguna');
-        Schema::connection('sistem_admin')->dropIfExists('perangkat_daerah');
+        Schema::connection($this->connection)->dropIfExists('users');
+        Schema::connection($this->connection)->dropIfExists('roles');
+        Schema::connection($this->connection)->dropIfExists('bidang');
+        Schema::connection($this->connection)->dropIfExists('perangkat_daerah');
     }
 };

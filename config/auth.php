@@ -38,7 +38,7 @@ return [
     'guards' => [
         'web' => [
         'driver' => 'session',
-        'provider' => 'pengguna_provider', // <-- Ubah dari 'users' ke provider kustom
+        'provider' => 'users', // <-- Ubah dari 'users' ke provider kustom
     ],
     ],
 
@@ -68,9 +68,15 @@ return [
     ],
 
     // Tambahkan provider baru untuk tabel 'pengguna' di koneksi 'sistem_admin'
-    'pengguna_provider' => [ // <-- Nama provider yang kita gunakan di Langkah 1
+    // 'pengguna_provider' => [ // <-- Nama provider yang kita gunakan di Langkah 1
+    //     'driver' => 'eloquent',
+    //     'model' => App\Models\Admin\Pengguna::class, // <-- Model Pengguna Anda
+    // ],
+    // config/auth.php
+
+    'users' => [
         'driver' => 'eloquent',
-        'model' => App\Models\Admin\Pengguna::class, // <-- Model Pengguna Anda
+        'model' => App\Models\Admin\User::class, // Pastikan ini mengarah ke App\Models\User
     ],
 
 

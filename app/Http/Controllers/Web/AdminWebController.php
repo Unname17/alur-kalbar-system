@@ -5,8 +5,10 @@ namespace App\Http\Controllers\Web;
 use App\Http\Controllers\Controller;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Auth;
-use Illuminate\Support\Facades\DB; // <--- BARIS INI WAJIB ADA UNTUK MEMPERBAIKI ERROR
-use Illuminate\Support\Facades\Hash;
+use Illuminate\Support\Facades\DB;
+use App\Models\Admin\User;
+use App\Models\Admin\PerangkatDaerah;
+use App\Models\Kinerja\AccessSetting;
 
 class AdminWebController extends Controller
 {
@@ -15,6 +17,18 @@ class AdminWebController extends Controller
         return view('auth.login');
     }
 
+    public function showPortal()
+{
+    // Mengambil status kunci untuk OPD tempat user bekerja
+    $user = auth()->user();
+    
+    // Status Kunci Akses dari DB Modul Kinerja
+    $lockStatus = \App\Models\Kinerja\AccessSetting::where('pd_id', $user->pd_id)->first();
+    $is_locked = $lockStatus ? $lockStatus->is_locked : false;
+
+    return view('portal.index', compact('is_locked'));
+}
+
     public function loginAction(Request $request)
     {
         $credentials = $request->validate([
@@ -22,6 +36,7 @@ class AdminWebController extends Controller
             'kata_sandi' => 'required|string', 
         ]);
 
+        // Laravel Auth secara default mencari kolom 'password'
         $loginData = [
             'nip' => $credentials['nip'],
             'password' => $credentials['kata_sandi'],
@@ -36,7 +51,7 @@ class AdminWebController extends Controller
             'nip' => 'Kredensial (NIP/Password) tidak valid.',
         ])->onlyInput('nip');
     }
-    
+
     public function logoutAction(Request $request)
     {
         Auth::logout();
@@ -48,34 +63,37 @@ class AdminWebController extends Controller
     // --- MANAJEMEN OPD ---
     public function showOpdList()
     {
-        // Menggunakan koneksi sistem_admin sesuai arsitektur database Anda
-        $opds = DB::connection('sistem_admin')->table('perangkat_daerah')->get();
+        // Menggunakan Model agar otomatis menggunakan koneksi 'sistem_admin'
+        $opds = PerangkatDaerah::all();
+        
+        // Kita ambil status kunci dari database kinerja untuk ditampilkan di view
+        foreach ($opds as $opd) {
+            $lockStatus = AccessSetting::where('pd_id', $opd->id)->first();
+            $opd->is_locked = $lockStatus ? $lockStatus->is_locked : false;
+        }
+
         return view('admin.opd.index', compact('opds'));
     }
 
     // --- FITUR KUNCI/BUKA INPUT (TOGGLE STATUS) ---
     public function toggleStatusInput($id)
     {
-        // 1. Cari data OPD di database admin
-        $opd = DB::connection('sistem_admin')->table('perangkat_daerah')->where('id', $id)->first();
+        // 1. Cari atau buat pengaturan akses di database 'modul_kinerja'
+        $access = AccessSetting::firstOrCreate(
+            ['pd_id' => $id],
+            [
+                'is_locked' => false,
+                'updated_by_nip' => auth()->user()->nip
+            ]
+        );
 
-        if (!$opd) {
-            return back()->with('error', 'Data OPD tidak ditemukan.');
-        }
+        // 2. Toggle status boolean
+        $access->is_locked = !$access->is_locked;
+        $access->updated_by_nip = auth()->user()->nip;
+        $access->save();
 
-        // 2. Cek status sekarang dan balikkan (Toggle)
-        $statusBaru = ($opd->status_input === 'buka') ? 'tutup' : 'buka';
-
-        // 3. Update ke Database admin
-        DB::connection('sistem_admin')->table('perangkat_daerah')
-            ->where('id', $id)
-            ->update([
-                'status_input' => $statusBaru, 
-                'updated_at' => now()
-            ]);
-
-        // 4. Pesan Notifikasi
-        $pesan = ($statusBaru === 'tutup') 
+        // 3. Pesan Notifikasi
+        $pesan = ($access->is_locked) 
             ? 'Akses input OPD dikunci (Staf tidak bisa input).' 
             : 'Akses input OPD dibuka kembali.';
 
@@ -84,10 +102,9 @@ class AdminWebController extends Controller
 
     public function showPenggunaList()
     {
-        $users = DB::connection('sistem_admin')->table('pengguna')
-            ->join('perangkat_daerah', 'pengguna.id_perangkat_daerah', '=', 'perangkat_daerah.id')
-            ->select('pengguna.*', 'perangkat_daerah.nama_perangkat_daerah')
-            ->get();
+        // Sesuaikan dengan nama tabel 'users' dan kolom 'pd_id'
+        $users = User::with(['perangkatDaerah', 'role'])->get();
+        
         return view('admin.pengguna.index', compact('users'));
     }
 }
