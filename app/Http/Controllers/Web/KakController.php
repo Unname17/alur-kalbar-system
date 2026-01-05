@@ -3,214 +3,70 @@
 namespace App\Http\Controllers\Web;
 
 use App\Http\Controllers\Controller;
+use Illuminate\Support\Facades\Http;
+use Illuminate\Support\Facades\Log;  // <--- Tambahkan ini untuk debugging error
 use Illuminate\Http\Request;
-use App\Models\Kinerja\PohonKinerja;
-use App\Models\Kak\Kak;
-use App\Models\Kak\KakTimPelaksana;
+use App\Models\Rka\RkaMain;
+use App\Models\Kak\KakMain; // Pastikan namespace model sesuai file sebelumnya
 use Illuminate\Support\Facades\DB;
+use Barryvdh\DomPDF\Facade\Pdf; // Pastikan library ini sudah diinstall
 
 class KakController extends Controller
 {
-    /**
-     * Menampilkan daftar Sub Kegiatan untuk disusun KAK-nya.
-     */
-    // app/Http/Controllers/Web/KakController.php
-
-public function index()
-{
-    // Mengambil Sub Kegiatan beserta Rencana Aksi di bawahnya
-    $listSubKegiatan = \App\Models\Kinerja\PohonKinerja::where('jenis_kinerja', 'sub_kegiatan')
-                        ->with(['children' => function($query) {
-                            $query->where('jenis_kinerja', 'rencana_aksi')->with('kak');
-                        }]) 
-                        ->get();
-
-    return view('kak.index', compact('listSubKegiatan'));
-}
-
-// app/Http/Controllers/Web/KakController.php
-
-public function storeTimeline(Request $request, $id)
-{
-    try {
-        DB::connection('modul_kak')->beginTransaction();
-
-        // Hapus jadwal lama agar bisa diganti dengan yang baru
-        \App\Models\Kak\KakTimeline::where('kak_id', $id)->delete();
-
-        if ($request->has('nama_tahapan')) {
-            foreach ($request->nama_tahapan as $key => $nama) {
-                if (!empty($nama)) {
-                    $data = [
-                        'kak_id' => $id,
-                        'nama_tahapan' => $nama,
-                    ];
-
-                    // Loop untuk mengisi bulan b1 sampai b12
-                    for ($i = 1; $i <= 12; $i++) {
-                        $data['b' . $i] = isset($request->{"b$i"}[$key]) ? 1 : 0;
-                    }
-
-                    \App\Models\Kak\KakTimeline::create($data);
-                }
-            }
-        }
-
-        DB::connection('modul_kak')->commit();
-        return back()->with('success', 'Jadwal pelaksanaan berhasil diperbarui.');
-
-    } catch (\Exception $e) {
-        DB::connection('modul_kak')->rollBack();
-        return back()->with('error', 'Gagal simpan jadwal: ' . $e->getMessage());
-    }
-}
-
-public function create($pohon_kinerja_id)
-{
-$subKegiatan = PohonKinerja::with(['indikators', 'children'])
-                    ->findOrFail($pohon_kinerja_id);
-
-    // Kirim dengan nama subKegiatan
-    return view('kak.create', compact('subKegiatan'));
-}
-
-    /**
-     * Menyimpan dokumen KAK baru ke database modul_kak.
-     */
-    public function store(Request $request)
+    public function manage($rka_id)
     {
-        $request->validate([
-            'pohon_kinerja_id' => 'required',
-            'judul_kak' => 'required',
-        ]);
-
-        try {
-            DB::connection('modul_kak')->beginTransaction();
-
-            // Status otomatis diset ke 1 (Menunggu Verifikasi) saat pertama kali diajukan
-            $inputData = $request->only([
-                'pohon_kinerja_id', 'judul_kak', 'kode_proyek', 'dasar_hukum',
-                'latar_belakang', 'maksud_tujuan', 'sasaran', 'metode_pelaksanaan',
-                'lokasi', 'penerima_manfaat', 'waktu_mulai', 'waktu_selesai'
-            ]);
-            $inputData['status'] = 1; 
-
-            $kak = Kak::create($inputData);
-
-            // Simpan Tim Pelaksana jika ada input
-            if ($request->has('nama_personil')) {
-                foreach ($request->nama_personil as $key => $nama) {
-                    if (!empty($nama)) {
-                        KakTimPelaksana::create([
-                            'kak_id' => $kak->id,
-                            'nama_personil' => $nama,
-                            'peran_dalam_tim' => $request->peran_dalam_tim[$key] ?? 'Anggota',
-                            'nip' => $request->nip[$key] ?? null,
-                        ]);
-                    }
-                }
-            }
-
-            DB::connection('modul_kak')->commit();
-            return redirect()->route('kak.index')->with('success', 'KAK Berhasil disusun dan diajukan.');
-
-        } catch (\Exception $e) {
-            DB::connection('modul_kak')->rollBack();
-            return back()->with('error', 'Gagal simpan: ' . $e->getMessage());
-        }
-    }
-
-    /**
-     * Menampilkan detail dokumen KAK (Pratinjau Cetak).
-     */
-    public function show($id)
-    {
-        // Menarik data KAK beserta tim dan referensi pohon kinerjanya
-        $kak = Kak::with(['timPelaksana', 'pohonKinerja.indikators', 'timelines'])->findOrFail($id);
-
-        return view('kak.show', compact('kak'));
-    }
-
-    /**
-     * Proses Verifikasi oleh Sekretariat/Bappeda.
-     */
-    public function verifikasi(Request $request, $id)
-    {
-        $request->validate([
-            'status' => 'required|in:2,3', // 2: Setuju, 3: Tolak
-            'catatan_sekretariat' => 'nullable|string'
-        ]);
-
-        $kak = Kak::findOrFail($id);
+        // UPDATE: Load relasi 'details' untuk rincian anggaran
+        $rka = RkaMain::with(['subActivity.activity.program', 'details'])->findOrFail($rka_id);
         
-        $updateData = [
-            'status' => $request->status,
-            'catatan_sekretariat' => $request->catatan_sekretariat
-        ];
+        $kak = KakMain::where('rka_main_id', $rka_id)->first();
+        
+        // ... (Logika Smart Template dll tetap sama) ...
 
-        // Penomoran otomatis saat dokumen disetujui
-        if ($request->status == 2 && empty($kak->nomor_kak)) {
-            $tahun = date('Y');
-            $count = Kak::whereYear('created_at', $tahun)->whereNotNull('nomor_kak')->count() + 1;
-            $nomorUrut = str_pad($count, 3, '0', STR_PAD_LEFT);
-            $updateData['nomor_kak'] = "{$nomorUrut}/ALUR-KALBAR/KAK/{$tahun}";
-        }
-
-        $kak->update($updateData);
-
-        return redirect()->route('kak.index')->with('success', 'Verifikasi berhasil diperbarui.');
+        return view('kak.manage', compact('rka', 'kak'));
     }
 
-    /**
-     * Menampilkan form perbaikan (Edit).
-     */
-    public function edit($id)
+    public function store(Request $request, $rka_id)
     {
-        $kak = Kak::with(['timPelaksana', 'pohonKinerja.indikators'])->findOrFail($id);
-        $subKegiatan = $kak->pohonKinerja;
-
-        return view('kak.edit', compact('kak', 'subKegiatan'));
-    }
-
-    /**
-     * Memproses pembaruan data (Update).
-     */
-    public function update(Request $request, $id)
-    {
+        // Validasi input yang dipecah
         $request->validate([
-            'judul_kak' => 'required|string|max:255',
-            'latar_belakang' => 'required',
+            'maksud' => 'required',
+            'tujuan' => 'required',
         ]);
 
-        try {
-            DB::connection('modul_kak')->beginTransaction();
-
-            $kak = Kak::findOrFail($id);
+ KakMain::updateOrCreate(
+        ['rka_main_id' => $rka_id],
+        [
+            'latar_belakang' => $request->latar_belakang,
+            'dasar_hukum' => $request->dasar_hukum,
+            'penerima_manfaat' => $request->penerima_manfaat,
             
-            // Status kembali ke 1 (Menunggu Verifikasi) setelah diperbaiki
-            $kak->update(array_merge($request->all(), ['status' => 1]));
+            // PASTIKAN DUA BARIS INI ADA:
+            'maksud' => $request->maksud,
+            'tujuan' => $request->tujuan,
 
-            // Refresh data Tim Pelaksana
-            KakTimPelaksana::where('kak_id', $id)->delete();
-            if ($request->has('nama_personil')) {
-                foreach ($request->nama_personil as $key => $nama) {
-                    if(!empty($nama)) {
-                        KakTimPelaksana::create([
-                            'kak_id' => $kak->id,
-                            'nama_personil' => $nama,
-                            'nip' => $request->nip[$key] ?? null,
-                            'peran_dalam_tim' => $request->peran_dalam_tim[$key] ?? 'Anggota',
-                        ]);
-                    }
-                }
-            }
+            'metode_pelaksanaan' => $request->metode_pelaksanaan,
+            'tempat_pelaksanaan' => $request->tempat_pelaksanaan,
+            'tahapan_pelaksanaan' => $request->tahapan_pelaksanaan,
+            'jadwal_matriks' => $request->jadwal // Jika ada input jadwal manual
+        ]
+    );
 
-            DB::connection('modul_kak')->commit();
-            return redirect()->route('kak.index')->with('success', 'Perubahan berhasil diajukan kembali.');
+    // Redirect tetap di halaman edit agar user bisa langsung lihat preview
+    return redirect()->back()->with('success', 'Dokumen KAK berhasil disimpan.');
+}
 
-        } catch (\Exception $e) {
-            DB::connection('modul_kak')->rollBack();
-            return back()->with('error', 'Gagal memperbarui: ' . $e->getMessage());
-        }
+    // FUNGSI BARU: CETAK PDF
+    public function printPdf($rka_id)
+    {
+        $rka = RkaMain::with(['subActivity.activity.program', 'details'])->findOrFail($rka_id);
+        $kak = KakMain::where('rka_main_id', $rka_id)->firstOrFail();
+
+        $pdf = Pdf::loadView('kak.print', compact('rka', 'kak'))
+                ->setPaper('a4', 'portrait');
+
+        return $pdf->stream('KAK_'.$rka->subActivity->nama_sub.'.pdf');
     }
+
+    
+
 }

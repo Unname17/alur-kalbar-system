@@ -35,24 +35,38 @@
         </div>
 
         <nav class="flex-1 px-4 space-y-2 overflow-y-auto custom-scroll">
-            <div class="px-4 pb-2 pt-4 text-[10px] font-black text-slate-500 uppercase tracking-widest">Menu Utama</div>
+            
+            {{-- [BARU] TOMBOL KEMBALI KE PORTAL --}}
+            <div class="mb-6">
+                <a href="{{ route('dashboard') }}" class="flex items-center gap-3 px-5 py-3 rounded-2xl font-bold text-xs bg-slate-800 text-slate-400 hover:bg-slate-700 hover:text-white border border-slate-700 transition-all group">
+                    <i class="fas fa-th-large w-5 group-hover:text-emerald-400 transition-colors"></i> 
+                    Kembali ke Portal
+                </a>
+            </div>
+
+            <div class="px-4 pb-2 pt-2 text-[10px] font-black text-slate-500 uppercase tracking-widest">Menu Utama</div>
             
             <a href="{{ route('rka.dashboard') }}" class="flex items-center gap-3 px-5 py-4 rounded-2xl font-bold text-sm transition-all {{ request()->routeIs('rka.dashboard') ? 'sidebar-active' : 'text-slate-400 hover:bg-slate-800 hover:text-white' }}">
                 <i class="fas fa-chart-pie w-5"></i> Dashboard SPK
             </a>
             
-            <a href="{{ route('rka.final') }}" class="flex items-center gap-3 px-5 py-4 rounded-2xl font-bold text-sm transition-all text-slate-400 hover:bg-slate-800 hover:text-white">
+            <a href="{{ route('rka.final') }}" class="flex items-center gap-3 px-5 py-4 rounded-2xl font-bold text-sm transition-all {{ request()->routeIs('rka.final') ? 'sidebar-active' : 'text-slate-400 hover:bg-slate-800 hover:text-white' }}">
                 <i class="fas fa-file-invoice-dollar w-5"></i> Data RKA
             </a>
 
             <div class="px-4 pb-2 pt-6 text-[10px] font-black text-slate-500 uppercase tracking-widest">Laporan</div>
+            {{-- Tambahkan menu laporan di sini jika ada --}}
             
         </nav>
 
+        {{-- [BARU] TOMBOL LOGOUT FUNGSIONAL --}}
         <div class="p-6 border-t border-slate-800">
-            <button class="w-full py-3 bg-slate-800 hover:bg-rose-900/50 hover:text-rose-400 text-slate-400 rounded-xl text-xs font-bold transition-all flex items-center justify-center gap-2">
-                <i class="fas fa-sign-out-alt"></i> Logout
-            </button>
+            <form action="{{ route('logout') }}" method="POST">
+                @csrf
+                <button type="submit" class="w-full py-3 bg-slate-800 hover:bg-rose-900/50 hover:text-rose-400 text-slate-400 rounded-xl text-xs font-bold transition-all flex items-center justify-center gap-2">
+                    <i class="fas fa-sign-out-alt"></i> Logout
+                </button>
+            </form>
         </div>
     </aside>
 
@@ -68,6 +82,12 @@
                 </h2>
             </div>
             <div class="flex items-center gap-4">
+                {{-- Info User --}}
+                <div class="text-right hidden sm:block">
+                    <p class="text-white font-bold text-xs leading-none">{{ Auth::user()->nama_lengkap ?? 'User' }}</p>
+                    <span class="text-[10px] text-slate-500 uppercase">{{ Auth::user()->perangkatDaerah->singkatan ?? 'OPD' }}</span>
+                </div>
+                
                 <div class="px-4 py-1.5 rounded-full bg-emerald-500/10 border border-emerald-500/20 text-emerald-400 text-xs font-bold flex items-center gap-2">
                     <span class="w-2 h-2 rounded-full bg-emerald-500 animate-pulse"></span> System Online
                 </div>

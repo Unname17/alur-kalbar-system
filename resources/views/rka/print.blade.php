@@ -2,7 +2,8 @@
 <html lang="id">
 <head>
     <meta charset="UTF-8">
-    <title>RKA SKPD - {{ $rka->subActivity->nama_sub ?? '-' }}</title>
+    {{-- Fallback untuk judul dokumen --}}
+    <title>RKA SKPD - {{ $rka->subActivity->nama_sub ?? 'Kegiatan Tanpa Nama' }}</title>
     <style>
         @page { size: A4 portrait; margin: 10mm; }
         body { font-family: Arial, sans-serif; font-size: 8pt; line-height: 1.3; margin: 0; padding: 0; }
@@ -50,14 +51,15 @@
                     <tr><td>Bidang Urusan</td><td>:</td><td>2.16 URUSAN PEMERINTAHAN BIDANG KOMUNIKASI DAN INFORMATIKA</td></tr>
                     <tr><td>Unit Organisasi</td><td>:</td><td>2.16.2.20.2.21.01.0000 DINAS KOMUNIKASI DAN INFORMATIKA PROVINSI KALIMANTAN BARAT</td></tr>
                     
+                    {{-- Tambahkan ?? '-' pada semua baris data dinamis --}}
                     <tr><td>Sub Unit Organisasi</td><td>:</td><td>{{ $rka->sub_unit_organisasi ?? '-' }}</td></tr>
                     
                     <tr><td>Program</td><td>:</td><td>{{ $rka->subActivity->activity->program->nama_program ?? '-' }}</td></tr>
                     <tr><td>Kegiatan</td><td>:</td><td>{{ $rka->subActivity->activity->nama_kegiatan ?? '-' }}</td></tr>
                     <tr><td>Sub Kegiatan</td><td>:</td><td>{{ $rka->subActivity->kode_sub ?? '-' }} {{ $rka->subActivity->nama_sub ?? '-' }}</td></tr>
                     
-                    <tr><td>SPM</td><td>:</td><td>{{ $rka->spm ?? '( - )' }}</td></tr>
-                    <tr><td>Jenis Layanan</td><td>:</td><td>{{ $rka->jenis_layanan ?? '( - )' }}</td></tr>
+                    <tr><td>SPM</td><td>:</td><td>{{ $rka->spm ?? '-' }}</td></tr>
+                    <tr><td>Jenis Layanan</td><td>:</td><td>{{ $rka->jenis_layanan ?? '-' }}</td></tr>
                     
                     <tr><td>Sumber Pendanaan</td><td>:</td><td>{{ $rka->sumber_dana ?? '-' }}</td></tr>
                     <tr><td>Lokasi</td><td>:</td><td>{{ $rka->lokasi_kegiatan ?? '-' }}</td></tr>
@@ -73,9 +75,10 @@
         <tr class="bg-grey text-center">
             <th width="20%">Indikator</th><th width="55%">Tolok Ukur Kinerja</th><th width="25%">Target Kinerja</th>
         </tr>
+        {{-- Data Indikator Hardcoded (Bisa diganti dinamis nanti) --}}
         <tr><td>Capaian Program</td><td>Persentase Total Bobot Domain Evaluasi SPBE</td><td class="text-center">73.60%</td></tr>
         <tr><td>Masukan</td><td>Dana yang dibutuhkan</td><td class="text-center">Rp {{ number_format($rka->total_anggaran ?? 0, 2, ',', '.') }}</td></tr>
-        <tr><td>Keluaran</td><td>Jumlah dokumen koordinasi Fasilitasi Promosi Literasi SPBE...</td><td class="text-center">1 Dokumen</td></tr>
+        <tr><td>Keluaran</td><td>{{ $rka->subActivity->indikator_sub ?? 'Jumlah dokumen...' }}</td><td class="text-center">{{ $rka->subActivity->target_2025 ?? '0' }} {{ $rka->subActivity->satuan ?? 'Dokumen' }}</td></tr>
         <tr><td>Hasil</td><td>Persentase pengelolaan e-government...</td><td class="text-center">100%</td></tr>
     </table>
 
@@ -93,25 +96,40 @@
         </thead>
         <tbody>
             @forelse($details as $items)
+                {{-- Header Rekening --}}
                 <tr class="font-bold bg-grey">
                     <td>{{ $items->first()->rekening->kode_rekening ?? '-' }}</td>
                     <td colspan="5">{{ $items->first()->rekening->nama_rekening ?? '-' }}</td>
                     <td class="text-right">Rp {{ number_format($items->sum('sub_total') ?? 0, 2, ',', '.') }}</td>
                 </tr>
+                
+                {{-- Detail Item Belanja --}}
                 @foreach($items as $item)
                 <tr>
                     <td></td>
-                    <td>{{ $item->uraian_belanja ?? '-' }}<br><span style="font-size: 7pt; font-style: italic;">Spesifikasi: {{ $item->spesifikasi ?? '-' }}</span></td>
+                    <td>
+                        {{ $item->uraian_belanja ?? '-' }}
+                        <br>
+                        <span style="font-size: 7pt; font-style: italic;">
+                            Spesifikasi: {{ $item->spesifikasi ?? '-' }}
+                        </span>
+                    </td>
                     <td class="text-center">{{ $item->koefisien ?? '-' }}</td>
                     <td class="text-center">{{ $item->satuan ?? '-' }}</td>
                     <td class="text-right">{{ number_format($item->harga_satuan ?? 0, 2, ',', '.') }}</td>
-                    <td class="text-center">0%</td>
+                    <td class="text-center">{{ $item->ppn ?? '0' }}%</td>
                     <td class="text-right">Rp {{ number_format($item->sub_total ?? 0, 2, ',', '.') }}</td>
                 </tr>
                 @endforeach
             @empty
-                <tr><td colspan="7" class="text-center">- Tidak ada rincian belanja -</td></tr>
+                {{-- Fallback jika tabel rincian kosong --}}
+                <tr>
+                    <td colspan="7" class="text-center" style="padding: 20px;">
+                        - Belum ada rincian belanja -
+                    </td>
+                </tr>
             @endforelse
+            
             <tr class="bg-grey font-bold">
                 <td colspan="6" class="text-right">JUMLAH TOTAL USULAN</td>
                 <td class="text-right">Rp {{ number_format($rka->total_anggaran ?? 0, 2, ',', '.') }}</td>
@@ -123,9 +141,9 @@
         <tr>
             <td width="60%" style="border-right: none;"></td>
             <td class="text-center" style="border-left: none; padding: 15px;">
-                Provinsi Kalimantan Barat, {{ date('d F Y', strtotime($rka->created_at ?? now())) }}<br>
+                Provinsi Kalimantan Barat, {{ $rka->created_at ? date('d F Y', strtotime($rka->created_at)) : '-' }}<br>
                 Kepala Dinas KOMUNIKASI DAN INFORMATIKA PROVINSI KALIMANTAN BARAT<br><br><br><br>
-                <span class="font-bold underline">{{ $namaPptk ?? '-' }}</span><br>
+                <span class="font-bold underline">{{ $namaPptk ?? '(Belum Ada PPTK)' }}</span><br>
                 NIP. {{ $nipPptk ?? '-' }}
             </td>
         </tr>
@@ -134,33 +152,37 @@
     <table class="table-block">
         <tr><td width="150" class="bg-grey">Pembahasan</td><td class="bg-grey">:</td></tr>
         <tr><td>Tanggal</td><td>: {{ date('d F Y') }}</td></tr>
-        <tr><td>Catatan</td><td>: <br> 1. <br> 2. <br> Dst. </td></tr>
+        <tr><td>Catatan</td><td>: <br> 1. - <br> 2. - <br> Dst. </td></tr>
     </table>
 
-<table class="table-block">
-    <tr class="bg-grey text-center font-bold"><td colspan="5">TIM ANGGARAN PEMERINTAH DAERAH</td></tr>
-    <tr class="bg-grey text-center font-bold">
-        <th width="30">NO</th><th>NAMA</th><th>NIP</th><th>JABATAN</th><th width="100">TANDA TANGAN</th>
-    </tr>
-    @php $tim = json_decode($rka->tim_anggaran); @endphp
-    @forelse($tim ?? [] as $index => $person)
-    <tr>
-        <td class="text-center">{{ $index + 1 }}</td>
-        <td>{{ $person->nama }}</td>
-        <td>{{ $person->nip }}</td>
-        <td>{{ $person->jabatan ?? '-' }}</td>
-        <td></td>
-    </tr>
-    @empty
-    <tr>
-        <td colspan="5" class="text-center" style="font-style: italic; color: #777; padding: 15px;">
-            ( Data Kosong )
-        </td>
-    </tr>
-    @endforelse
-</table>
+    <table class="table-block">
+        <tr class="bg-grey text-center font-bold"><td colspan="5">TIM ANGGARAN PEMERINTAH DAERAH</td></tr>
+        <tr class="bg-grey text-center font-bold">
+            <th width="30">NO</th><th>NAMA</th><th>NIP</th><th>JABATAN</th><th width="100">TANDA TANGAN</th>
+        </tr>
+        
+        {{-- Decode JSON Tim Anggaran --}}
+        @php 
+            $tim = json_decode($rka->tim_anggaran); 
+        @endphp
 
-
+        @forelse($tim ?? [] as $index => $person)
+        <tr>
+            <td class="text-center">{{ $index + 1 }}</td>
+            <td>{{ $person->nama ?? '-' }}</td>
+            <td>{{ $person->nip ?? '-' }}</td>
+            <td>{{ $person->jabatan ?? '-' }}</td>
+            <td></td>
+        </tr>
+        @empty
+        {{-- Fallback jika Tim Anggaran Kosong --}}
+        <tr>
+            <td colspan="5" class="text-center" style="font-style: italic; color: #777; padding: 15px;">
+                ( - Data Tim Anggaran Belum Diisi - )
+            </td>
+        </tr>
+        @endforelse
+    </table>
 
 </body>
 </html>

@@ -47,4 +47,9 @@ class RkaMain extends Model
     {
         return $this->hasMany(RkaDetail::class, 'rka_main_id');
     }
+    public function kak()
+{
+    // Relasi ke tabel kak_mains di database sebelah (modul_kak)
+    return $this->hasOne(\App\Models\Kak\KakMain::class, 'rka_main_id', 'id');
+}
 }

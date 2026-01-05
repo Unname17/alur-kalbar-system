@@ -156,16 +156,16 @@ Route::put('/store-step3/{id}', [RkaController::class, 'storeStep3'])->name('sto
 // ========================================================================
 // 4. MODUL KAK (Database: modul_kak)
 // ========================================================================
-Route::middleware(['auth', 'db.set:modul_kak'])->prefix('kak')->group(function () {
-    Route::get('/', [KakController::class, 'index'])->name('kak.index');
-    Route::get('/create/{pohon_kinerja_id}', [KakController::class, 'create'])->name('kak.create');
-    Route::post('/store', [KakController::class, 'store'])->name('kak.store');
-    Route::get('/show/{id}', [KakController::class, 'show'])->name('kak.show');
-    Route::get('/edit/{id}', [KakController::class, 'edit'])->name('kak.edit');
-    Route::post('/update/{id}', [KakController::class, 'update'])->name('kak.update');
-    Route::post('/verifikasi/{id}', [KakController::class, 'verifikasi'])->name('kak.verifikasi');
-    Route::post('/timeline/{id}', [KakController::class, 'storeTimeline'])->name('kak.timeline.store');
-    Route::get('/api/list-valid', [KakApiController::class, 'getValidKak'])->name('api.kak.valid');
+Route::middleware(['auth'])->prefix('kak')->name('kak.')->group(function () {
+    Route::get('/dashboard', [KakController::class, 'index'])->name('index');
+    // Menampilkan Form KAK (Create/Edit)
+    Route::get('/manage/{rka_id}', [KakController::class, 'manage'])->name('manage');
+    
+    // Menyimpan Data
+    Route::post('/store/{rka_id}', [KakController::class, 'store'])->name('store');
+    
+    // Cetak PDF (Nanti)
+    Route::get('/print/{rka_id}', [KakController::class, 'printPdf'])->name('print');
 });
 
 // ========================================================================

@@ -10,42 +10,59 @@ use App\Models\Kinerja\AccessSetting;
 
 class WebPortalController extends Controller
 {
-public function index()
-{
-    $user = Auth::user();
-    
-    // Ambil status kunci untuk OPD user tersebut
-    $lockData = AccessSetting::where('pd_id', $user->pd_id)->first();
-    $is_locked = $lockData ? (bool) $lockData->is_locked : false;
+    public function index()
+    {
+        $user = Auth::user();
+        
+        // Ambil status kunci untuk OPD user tersebut
+        $lockData = AccessSetting::where('pd_id', $user->pd_id)->first();
+        $is_locked = $lockData ? (bool) $lockData->is_locked : false;
 
-    $apps = [
-        [
-            'title' => 'Pohon Kinerja',
-            'desc' => 'Visualisasi Cascading Visi-Misi ke Sub-Kegiatan & Target Kinerja.',
-            'icon' => 'bi-diagram-3-fill',
-            'url' => route('kinerja.index'), // Semua role masuk ke sini
-            'is_locked' => $is_locked,
-        ],
-        [
-            'title' => 'E-Budgeting (RKA)',
-            'desc' => 'Penyusunan Rincian Anggaran Belanja berdasarkan output kerja.',
-            'icon' => 'bi-cash-stack',
-            'url' => route('rka.dashboard'),
-        ],
-        [
-            'title' => 'E-KAK',
-            'desc' => 'Kerangka Acuan Kerja, Tahapan, dan Spesifikasi Teknis Pekerjaan.',
-            'icon' => 'bi-file-earmark-medical-fill',
-            'url' => '#',
-        ],
-        [
-            'title' => 'Pengadaan Barang/Jasa',
-            'desc' => 'Manajemen paket pekerjaan dan metode pengadaan pemerintah.',
-            'icon' => 'bi-truck',
-            'url' => '#',
-        ],
-    ];
+        $apps = [
 
-    return view('portal.index', compact('apps', 'is_locked'));
-}
+
+            [
+                'title' => 'Pohon Kinerja',
+                'desc' => 'Visualisasi Cascading Visi-Misi ke Sub-Kegiatan & Target Kinerja.',
+                'icon' => 'bi-diagram-3-fill',
+                'url' => route('kinerja.index'), 
+                'is_locked' => $is_locked,
+            ],
+            [
+                'title' => 'E-Budgeting (RKA)',
+                'desc' => 'Penyusunan Rincian Anggaran Belanja berdasarkan output kerja.',
+                'icon' => 'bi-cash-stack',
+                'url' => route('rka.dashboard'),
+            ],
+            [
+                'title' => 'E-KAK',
+                'desc' => 'Kerangka Acuan Kerja, Tahapan, dan Spesifikasi Teknis Pekerjaan.',
+                'icon' => 'bi-file-earmark-medical-fill',
+                'url' => route('kak.index'),
+            ],
+            [
+                'title' => 'Pengadaan Barang/Jasa',
+                'desc' => 'Manajemen paket pekerjaan dan metode pengadaan pemerintah.',
+                'icon' => 'bi-truck',
+                'url' => '#',
+            ],
+                        // --- MODUL BARU: DASHBOARD PIMPINAN ---
+            // Ditujukan untuk Bappeda, Kadis, Kabid memantau makro (Visi Misi) & mikro (Progress Kegiatan)
+            [
+                'title' => 'Dashboard Pimpinan',
+                'desc' => 'Executive Summary: Monitoring Capaian Visi-Misi, IKU, & Progress Realisasi Kegiatan.',
+                'icon' => 'bi-speedometer2', // Ikon Speedometer cocok untuk dashboard
+                'url' => '#', // Pastikan Anda membuat route ini nanti
+                'is_locked' => false, // Dashboard biasanya read-only, jadi jarang dikunci
+            ],
+            // --------------------------------------
+        ];
+
+        // Opsional: Filter jika hanya role tertentu yang boleh melihat Dashboard
+        // if (!in_array($user->role, ['bappeda', 'kadis', 'kabid', 'admin'])) {
+        //     array_shift($apps); // Hapus Dashboard Pimpinan jika bukan pimpinan
+        // }
+
+        return view('portal.index', compact('apps', 'is_locked'));
+    }
 }
