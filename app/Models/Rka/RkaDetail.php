@@ -1,29 +1,37 @@
 <?php
+
 namespace App\Models\Rka;
 
 use Illuminate\Database\Eloquent\Model;
-use App\Models\Kak\Kak;
 
 class RkaDetail extends Model
 {
+    // Gunakan koneksi anggaran karena rincian disimpan di database anggaran
     protected $connection = 'modul_anggaran';
-    protected $table = 'kak_details';
-    protected $fillable = ['kak_id', 'ssh_id', 'nama_barang', 'volume', 'satuan', 'harga_satuan', 'total_harga', 'is_manual','is_verified'];
+    
+    // Nama tabel sesuai database Anda
+    protected $table = 'rka_details';
+
+protected $fillable = [
+    'rka_main_id',
+    'rekening_id',
+    'uraian_belanja',
+    'spesifikasi',
+    'koefisien',
+    'satuan',
+    'harga_satuan',
+    'sub_total'
+];
 
     /**
-     * Relasi ke Tabel KAK (Parent)
-     * Setiap detail belanja pasti milik satu KAK
+     * Relasi balik ke Header RKA (RkaMain)
      */
-
-    /**
-     * Tambahan: Relasi ke SSH (Opsional, barangkali nanti butuh)
-     */
-    public function ssh()
+    public function rkaMain()
     {
-        return $this->belongsTo(MasterSsh::class, 'ssh_id');
+        return $this->belongsTo(RkaMain::class, 'rka_id');
     }
-    public function rka()
-    {
-        return $this->belongsTo(Rka::class, 'rka_id');
-    }
+    public function rekening()
+{
+    return $this->belongsTo(MasterRekening::class, 'rekening_id');
+}
 }

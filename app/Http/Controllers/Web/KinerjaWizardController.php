@@ -6,7 +6,7 @@ use App\Http\Controllers\Controller;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Auth;
 use App\Helpers\LogKinerja;
-use Illuminate\Support\Facades\DB; // Tambahkan ini untuk Transaksi Database
+use Illuminate\Support\Facades\DB; 
 use App\Models\Kinerja\{Mission, Goal, SasaranStrategis, Program, Activity, SubActivity, AccessSetting};
 
 class KinerjaWizardController extends Controller
@@ -23,7 +23,7 @@ class KinerjaWizardController extends Controller
                 $q->where('user_nip', $user->nip)
                   ->orWhere(function($sq) use ($user) {
                       $sq->where('pd_id', $user->pd_id)
-                         ->whereNull('user_nip');
+                           ->whereNull('user_nip');
                   });
             })->first();
 
@@ -42,64 +42,79 @@ class KinerjaWizardController extends Controller
 
     /**
      * Logika Simpan Per Step (Wizard)
-     */
-    /**
-     * Logika Simpan Per Step (Wizard)
+     * DIPERBARUI: Menangani penyimpanan Baseline & Target untuk perhitungan selisih.
      */
     public function storeStep(Request $request)
     {
         $step = (int) $request->step;
-        $targetColumn = 'target_' . ($request->tahun_input ?? '2025');
+        
+        // Menentukan kolom target dinamis (misal: target_2025)
+        $targetColumn = 'target_' . ($request->tahun_input ?? date('Y'));
+        
         $id = $request->existing_id;
         $user = auth()->user();
 
-        // 1. Ambil Role User (Handle jika relation object atau string biasa)
+        // 1. Ambil Role User
         $userRole = strtolower(is_object($user->role) ? $user->role->name : $user->role);
 
         try {
-            // 2. Siapkan Data Teknis (Target & Satuan)
+            // 2. Siapkan Data Teknis (Target, Satuan, & BASELINE)
+            // Penambahan 'baseline' penting agar selisih (gap) bisa dihitung nanti.
             $updateData = [
-                $targetColumn => $request->target_value,
-                'satuan' => $request->satuan,
+                $targetColumn => $request->target_value, // Target (Kondisi yang diinginkan)
+                'baseline'    => $request->baseline,     // Baseline (Kondisi saat ini/tahun lalu)
+                'satuan'      => $request->satuan,
             ];
 
-            // 3. LOGIKA PENENTUAN STATUS (Perbaikan di sini)
+            // 3. LOGIKA PENENTUAN STATUS
             if (!$id) {
                 // KASUS A: Input Baru -> Wajib Pending
                 $updateData['status'] = 'pending';
                 $updateData['catatan_revisi'] = null;
             } else {
                 // KASUS B: Edit Data Lama
-                
-                // Daftar Role Pejabat yang boleh edit TANPA mereset status
                 $approvers = ['kabid', 'kadis', 'bappeda', 'admin_utama'];
 
                 if (!in_array($userRole, $approvers)) {
-                    // Jika yang edit adalah STAFF / Operator -> Reset jadi Pending (Minta verifikasi ulang)
+                    // Jika STAFF edit -> Reset jadi Pending
                     $updateData['status'] = 'pending';
-                    $updateData['catatan_revisi'] = null; // Hapus catatan revisi lama jika ada
+                    $updateData['catatan_revisi'] = null; 
                 } 
-                // ELSE: Jika yang edit adalah Pejabat, kita TIDAK menyertakan key 'status' 
-                // ke dalam array $updateData, sehingga status di database tidak berubah.
+                // Pejabat edit -> Status tidak berubah
             }
 
             // 4. Proses Simpan ke Database
+            // Data Pagu TIDAK disertakan di sini karena beda controller.
             $data = match ($step) {
                 1 => Goal::on('modul_kinerja')->updateOrCreate(['id' => $id], array_merge($updateData, [
-                    'mission_id' => $request->parent_id, 'pd_id' => $user->pd_id, 'nama_tujuan' => $request->nama, 'indikator' => $request->indikator
+                    'mission_id' => $request->parent_id, 
+                    'pd_id' => $user->pd_id, 
+                    'nama_tujuan' => $request->nama, 
+                    'indikator' => $request->indikator
                 ])),
                 2 => SasaranStrategis::on('modul_kinerja')->updateOrCreate(['id' => $id], array_merge($updateData, [
-                    'goal_id' => $request->parent_id, 'nama_sasaran' => $request->nama, 'indikator_sasaran' => $request->indikator
+                    'goal_id' => $request->parent_id, 
+                    'nama_sasaran' => $request->nama, 
+                    'indikator_sasaran' => $request->indikator
                 ])),
                 3 => Program::on('modul_kinerja')->updateOrCreate(['id' => $id], array_merge($updateData, [
-                    'sasaran_id' => $request->parent_id, 'nama_program' => $request->nama, 'indikator_program' => $request->indikator
+                    'sasaran_id' => $request->parent_id, 
+                    'nama_program' => $request->nama, 
+                    'indikator_program' => $request->indikator
                 ])),
                 4 => Activity::on('modul_kinerja')->updateOrCreate(['id' => $id], array_merge($updateData, [
-                    'program_id' => $request->parent_id, 'nama_kegiatan' => $request->nama, 'indikator_kegiatan' => $request->indikator
+                    'program_id' => $request->parent_id, 
+                    'nama_kegiatan' => $request->nama, 
+                    'indikator_kegiatan' => $request->indikator
                 ])),
                 5 => SubActivity::on('modul_kinerja')->updateOrCreate(['id' => $id], array_merge($updateData, [
-                    'activity_id' => $request->parent_id, 'nama_sub' => $request->nama, 'indikator_sub' => $request->indikator,
-                    'tipe_perhitungan' => $request->tipe_perhitungan, 'klasifikasi' => $request->klasifikasi, 'created_by_nip' => $user->nip
+                    'activity_id' => $request->parent_id, 
+                    'nama_sub' => $request->nama, 
+                    'indikator_sub' => $request->indikator,
+                    // Tambahan spesifik untuk Sub-Kegiatan (Logic type)
+                    'tipe_perhitungan' => $request->tipe_perhitungan, 
+                    'klasifikasi' => $request->klasifikasi, 
+                    'created_by_nip' => $user->nip
                 ])),
             };
 
@@ -118,7 +133,7 @@ class KinerjaWizardController extends Controller
             return response()->json([
                 'success' => true, 
                 'inserted_id' => $data->id, 
-                'message' => 'Data berhasil disimpan.'
+                'message' => 'Data kinerja (Target & Baseline) berhasil disimpan.'
             ]);
         } catch (\Exception $e) {
             return response()->json(['success' => false, 'message' => $e->getMessage()], 500);
@@ -220,7 +235,7 @@ class KinerjaWizardController extends Controller
     }
 
     // --- Page Monitoring ---
-public function monitoring()
+    public function monitoring()
     {
         $pd_id = auth()->user()->pd_id;
         
@@ -231,10 +246,9 @@ public function monitoring()
                     'nama' => $item->nama_tujuan ?? $item->nama_sasaran ?? $item->nama_program ?? $item->nama_kegiatan ?? $item->nama_sub,
                     'level' => $level,
                     'status' => $item->status,
-                    // Kita butuh data ini untuk logika Stepper (Hijau/Merah)
-                    'nip_verifier' => $item->nip_verifier ?? null,   // Kabid
-                    'nip_validator' => $item->nip_validator ?? null, // Kadis
-                    'nip_approver' => $item->nip_approver ?? null,   // Bappeda
+                    'nip_verifier' => $item->nip_verifier ?? null,   
+                    'nip_validator' => $item->nip_validator ?? null, 
+                    'nip_approver' => $item->nip_approver ?? null,   
                 ];
             });
         };
@@ -260,7 +274,6 @@ public function monitoring()
     public function manageAccess()
     {
         $pdList = \App\Models\Admin\PerangkatDaerah::get();
-        // Eager load untuk performa
         $accessRules = AccessSetting::with(['perangkatDaerah', 'user', 'goal'])->get();
         return view('kinerja.admin.akses', compact('pdList', 'accessRules'));
     }
@@ -285,17 +298,14 @@ public function monitoring()
         return response()->json($goals);
     }
 
-    // [DIPERBAIKI] Menyimpan Aturan Akses (Multi-Select)
-public function storeAccess(Request $request)
+    public function storeAccess(Request $request)
     {
-        // Validasi
         $request->validate([
             'pd_id' => 'required',
             'level_izin' => 'required|array',
             'level_izin.*' => 'string',
         ]);
 
-        // Transaksi Database
         DB::transaction(function () use ($request) {
             $levels = $request->level_izin;
 
@@ -309,14 +319,11 @@ public function storeAccess(Request $request)
                     'waktu_tutup' => $request->waktu_tutup,
                     'pesan_blokir' => $request->pesan_blokir,
                     'is_locked' => $request->has('is_locked') ? 1 : 0,
-                    
-                    // Sesuai tabel: updated_by_nip diisi NIP user login
                     'updated_by_nip' => auth()->user()->nip 
                 ]);
             }
         });
 
-        // Di luar loop atau sesudah loop
     $targetOPD = \App\Models\Admin\PerangkatDaerah::find($request->pd_id);
     $levels = implode(', ', $request->level_izin);
     
@@ -328,7 +335,6 @@ public function storeAccess(Request $request)
         return back()->with('success', 'Aturan akses berhasil ditambahkan.');
     }
 
-    // [DITAMBAHKAN] Menghapus Aturan Akses
     public function destroyAccess($id)
     {
         $rule = AccessSetting::findOrFail($id);

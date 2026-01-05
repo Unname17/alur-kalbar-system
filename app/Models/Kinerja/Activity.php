@@ -11,7 +11,8 @@ class Activity extends Model
     protected $fillable = [
         'program_id', 'nama_kegiatan', 'sasaran_kegiatan', 'indikator_kegiatan', 
         'satuan', 'baseline_2024', 'target_2025', 'target_2026', 
-        'target_2027', 'target_2028', 'target_2029', 'target_2030'
+        'target_2027', 'target_2028', 'target_2029', 'target_2030',
+        'pagu_indikatif', // <--- TAMBAHKAN INI
     ];
 
     public function subActivities() {

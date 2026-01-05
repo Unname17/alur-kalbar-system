@@ -1,6 +1,8 @@
 <?php
 
 use Illuminate\Support\Facades\Route;
+
+// 1. Import Controller Web (Group)
 use App\Http\Controllers\Web\{
     AdminWebController,
     WebPortalController,
@@ -13,8 +15,12 @@ use App\Http\Controllers\Web\{
     LogAktivitasController,
     KinerjaWizardController,
     KinerjaApprovalController,
-    AdminKinerjaController // Tambahkan Controller Admin Kinerja jika Anda memisahkan logic admin
+    AdminKinerjaController,
+    PaguKegiatanController
 };
+
+// 2. Import Controller yang berada di root Controller (Penting: Dipisah agar tidak error)
+
 use App\Http\Controllers\Api\Kinerja\PohonKinerjaController;
 use App\Http\Controllers\Api\Perencanaan\KakApiController;
 
@@ -24,7 +30,9 @@ use App\Http\Controllers\Api\Perencanaan\KakApiController;
 |--------------------------------------------------------------------------
 */
 
+// ========================================================================
 // 1. AUTH & PUBLIC ROUTES (Database: sistem_admin)
+// ========================================================================
 Route::middleware('db.set:sistem_admin')->group(function () {
     Route::middleware('guest')->group(function () {
         Route::get('login', [AdminWebController::class, 'showLoginForm'])->name('login');
@@ -43,7 +51,10 @@ Route::middleware('db.set:sistem_admin')->group(function () {
     });
 });
 
+// ========================================================================
 // 2. MODUL KINERJA (Database: modul_kinerja)
+//Prefix URL: /kinerja | Prefix Name: kinerja.
+// ========================================================================
 Route::middleware(['auth', 'db.set:modul_kinerja'])->prefix('kinerja')->name('kinerja.')->group(function () {
     
     // DASHBOARD & MONITORING
@@ -71,22 +82,30 @@ Route::middleware(['auth', 'db.set:modul_kinerja'])->prefix('kinerja')->name('ki
         Route::post('/reject/{level}/{id}', [KinerjaApprovalController::class, 'reject'])->name('reject');
     });
 
-    // --- MANAJEMEN AKSES (Hanya Bappeda) ---
-    // PERBAIKAN DI SINI: Menambahkan rute store dan destroy
+    // --- MANAJEMEN PAGU (Khusus Bappeda) ---
+    // URL: /kinerja/manajemen-pagu
+    // Route Name: kinerja.pagu.index
+    Route::middleware(['role:bappeda'])->group(function () {
+        Route::get('/manajemen-pagu', [PaguKegiatanController::class, 'index'])->name('pagu.index');
+        Route::get('/manajemen-pagu/{id}/edit', [PaguKegiatanController::class, 'edit'])->name('pagu.edit');
+        Route::put('/manajemen-pagu/{id}', [PaguKegiatanController::class, 'update'])->name('pagu.update');
+    });
+
+    // --- ADMINISTRASI (Khusus Bappeda - Manajemen Akses) ---
     Route::middleware(['role:bappeda'])->prefix('admin')->name('admin.')->group(function () {
         
         Route::prefix('access')->name('access.')->group(function () {
             // Halaman Utama Manajemen Akses
-            Route::get('/', [KinerjaWizardController::class, 'manageAccess'])->name('index'); // kinerja.admin.access.index
+            Route::get('/', [KinerjaWizardController::class, 'manageAccess'])->name('index'); 
             
-            // Simpan Aturan Baru (Multi-select)
-            Route::post('/store', [KinerjaWizardController::class, 'storeAccess'])->name('store'); // kinerja.admin.access.store
+            // Simpan Aturan Baru
+            Route::post('/store', [KinerjaWizardController::class, 'storeAccess'])->name('store'); 
             
             // Hapus Aturan
-            Route::delete('/{id}', [KinerjaWizardController::class, 'destroyAccess'])->name('destroy'); // kinerja.admin.access.destroy
+            Route::delete('/{id}', [KinerjaWizardController::class, 'destroyAccess'])->name('destroy'); 
         });
 
-        // Rute Helper AJAX (untuk Dropdown Pegawai & Goals)
+        // Rute Helper AJAX
         Route::get('/fetch-pegawai/{pd_id}', [KinerjaWizardController::class, 'fetchPegawaiByOpd'])->name('fetch-pegawai');
         Route::get('/fetch-goals/{pd_id}', [KinerjaWizardController::class, 'fetchGoalsByOpd'])->name('fetch-goals');
     });
@@ -94,6 +113,7 @@ Route::middleware(['auth', 'db.set:modul_kinerja'])->prefix('kinerja')->name('ki
     // LOG & SYNC
     Route::middleware(['role:bappeda,admin_utama'])->group(function () {
         Route::post('/sync-visi-misi', [KinerjaWebController::class, 'syncVisiMisi'])->name('sync');
+        
         Route::prefix('log')->name('log.')->group(function () {
             Route::get('/', [LogAktivitasController::class, 'index'])->name('index');
             Route::get('/export', [LogAktivitasController::class, 'exportExcel'])->name('export');
@@ -102,12 +122,40 @@ Route::middleware(['auth', 'db.set:modul_kinerja'])->prefix('kinerja')->name('ki
             Route::delete('/{id}', [LogAktivitasController::class, 'destroy'])->name('destroy');
         });
     });
-    Route::middleware(['role:bappeda,admin_utama'])->prefix('log')->name('log.')->group(function () {
-    Route::get('/', [LogAktivitasController::class, 'index'])->name('index');
-});
 });
 
-// 3. MODUL KAK (Database: modul_kak)
+
+// ========================================================================
+// 3. MODUL RKA (Database: modul_anggaran)
+// ========================================================================
+Route::middleware(['auth'])->prefix('rka')->name('rka.')->group(function () {
+    // Dashboard SPK
+    Route::get('/dashboard', [RkaController::class, 'index'])->name('dashboard');
+    
+    // TAMBAHKAN INI: Route untuk halaman "Daftar Usulan" agar Navbar tidak error
+    Route::get('/edit-header/{id}', [RkaController::class, 'editHeader'])->name('edit_header');
+Route::put('/update-header/{id}', [RkaController::class, 'updateHeader'])->name('update_header');
+Route::get('/manage-step3/{id}', [RkaController::class, 'manageStep3'])->name('manage_v3');
+Route::put('/store-step3/{id}', [RkaController::class, 'storeStep3'])->name('store_step3');    
+    
+    // Flow Penyusunan
+    Route::get('/create/{sub_activity_id}', [RkaController::class, 'createHeader'])->name('create');
+    Route::post('/store-header', [RkaController::class, 'storeHeader'])->name('store_header');
+    
+    Route::get('/manage/{id}', [RkaController::class, 'manageDetails'])->name('manage');
+    Route::post('/store-detail/{rka_id}', [RkaController::class, 'storeDetail'])->name('store_detail');
+    Route::delete('/delete-detail/{id}', [RkaController::class, 'destroyDetail'])->name('destroy_detail');
+    
+    // Fitur Baru: Daftar RKA Terfinalisasi
+    Route::get('/finalized', [RkaController::class, 'finalizedList'])->name('final');
+    
+    // Fitur Cetak PDF (Identik format Pemerintah Provinsi Kalimantan Barat)
+    Route::get('/print/{id}', [RkaController::class, 'printPdf'])->name('print');
+});
+
+// ========================================================================
+// 4. MODUL KAK (Database: modul_kak)
+// ========================================================================
 Route::middleware(['auth', 'db.set:modul_kak'])->prefix('kak')->group(function () {
     Route::get('/', [KakController::class, 'index'])->name('kak.index');
     Route::get('/create/{pohon_kinerja_id}', [KakController::class, 'create'])->name('kak.create');
@@ -120,34 +168,9 @@ Route::middleware(['auth', 'db.set:modul_kak'])->prefix('kak')->group(function (
     Route::get('/api/list-valid', [KakApiController::class, 'getValidKak'])->name('api.kak.valid');
 });
 
-// 4. MODUL RKA (Database: modul_anggaran)
-Route::middleware(['auth', 'db.set:modul_anggaran'])->prefix('rka')->group(function () {
-    Route::get('/', [RkaController::class, 'pilihKak'])->name('rka.pilih_kak');
-    Route::get('/penyusunan/{kak_id}', [RkaController::class, 'index'])->name('rka.index');
-    Route::get('/cetak/{kak_id}', [RkaController::class, 'cetak'])->name('rka.cetak');
-    Route::post('/sync-all', [RkaController::class, 'syncAllFromKak'])->name('rka.sync_all');
-    Route::post('/store/{kak_id}', [RkaController::class, 'store'])->name('rka.store');
-    Route::delete('/destroy/{id}', [RkaController::class, 'destroy'])->name('rka.destroy');
-    Route::put('/update-manual/{id}', [RkaController::class, 'updateManual'])->name('rka.update_manual');
-    Route::post('/finalisasi/{kak_id}', [RkaController::class, 'finalisasi'])->name('rka.finalisasi');
-    Route::post('/{id}/import', [RkaController::class, 'importExcel'])->name('rka.import');
-    Route::get('/template/download', [RkaController::class, 'downloadTemplate'])->name('rka.download_template');
-
-    // Sub-Modul Verifikasi
-    Route::prefix('verifikasi')->group(function () {
-        Route::get('/monitoring', [RkaVerifikasiController::class, 'index'])->name('verifikasi.index');
-        Route::get('/belanja', [RkaVerifikasiController::class, 'indexBelanja'])->name('verifikasi.belanja');
-        Route::get('/detail/{id}', [RkaVerifikasiController::class, 'show'])->name('verifikasi.show');
-        Route::post('/approve/{id}', [RkaVerifikasiController::class, 'approve'])->name('verifikasi.approve');
-        Route::post('/reject/{id}', [RkaVerifikasiController::class, 'reject'])->name('verifikasi.reject');
-        Route::post('/bulk-approve', [RkaVerifikasiController::class, 'bulkApprove'])->name('verifikasi.bulk_approve');
-        Route::post('/bulk-reject', [RkaVerifikasiController::class, 'bulkReject'])->name('verifikasi.bulk_reject');
-        Route::post('/setuju-kak/{id}', [RkaVerifikasiController::class, 'setujuKak'])->name('verifikasi.kak.acc');
-        Route::post('/tolak-kak/{id}', [RkaVerifikasiController::class, 'tolakKak'])->name('verifikasi.kak.tolak');
-    });
-});
-
+// ========================================================================
 // 5. MODUL PENGADAAN (Database: modul_pengadaan)
+// ========================================================================
 Route::middleware(['auth', 'db.set:modul_pengadaan'])->prefix('pengadaan')->group(function () {
     Route::get('/', [PengadaanController::class, 'index'])->name('pengadaan.index');
     Route::get('/detail/{id}', [PengadaanController::class, 'show'])->name('pengadaan.show');

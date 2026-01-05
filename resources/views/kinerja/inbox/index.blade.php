@@ -8,6 +8,7 @@
         {{ $role == 'kabid' ? 'pending' : ($role == 'kadis' ? 'verified' : ($role == 'bappeda' ? 'validated' : 'TIDAK DIKENAL')) }}
     </strong>
 </div>
+
 <div class="max-w-[1200px] mx-auto space-y-8">
     <div class="flex justify-between items-end">
         <div>
@@ -30,40 +31,75 @@
     @else
         <div class="grid gap-6">
             @foreach($items as $item)
-            <div class="bg-white rounded-[2.5rem] border border-slate-200 shadow-sm p-8 hover:border-indigo-300 transition-all group">
-                <div class="flex justify-between items-start mb-6">
+            <div class="bg-white rounded-[2.5rem] border border-slate-200 shadow-sm p-8 hover:border-indigo-300 transition-all group relative overflow-hidden">
+                
+                {{-- [BARU] Badge Klasifikasi SPK --}}
+                @php
+                    $klasifikasi = $item->klasifikasi ?? 'IKK';
+                    $badgeColor = match($klasifikasi) {
+                        'IKU' => 'bg-rose-500 text-white shadow-rose-200', // Prioritas Tinggi
+                        'IKD' => 'bg-amber-500 text-white shadow-amber-200', // Prioritas Sedang
+                        default => 'bg-slate-100 text-slate-500' // Standar
+                    };
+                @endphp
+                <div class="absolute top-0 right-0 px-6 py-3 rounded-bl-[2rem] text-[10px] font-black uppercase tracking-widest shadow-lg {{ $badgeColor }}">
+                    {{ $klasifikasi }}
+                </div>
+
+                <div class="flex justify-between items-start mb-6 pr-16">
                     <div class="space-y-1">
                         <span class="px-3 py-1 bg-slate-100 text-slate-500 rounded-lg text-[9px] font-black uppercase tracking-widest">Sub-Kegiatan</span>
                         <h3 class="text-xl font-black text-slate-800 leading-tight">{{ $item->nama_sub }}</h3>
                     </div>
-                    <div class="flex gap-2">
-                        {{-- Tombol Approve --}}
-                        <form action="{{ route('kinerja.inbox.approve', ['level' => 'sub_activity', 'id' => $item->id]) }}" method="POST">
-                            @csrf
-                            <button type="submit" class="bg-emerald-500 text-white px-6 py-3 rounded-xl font-black text-[10px] uppercase tracking-widest shadow-lg shadow-emerald-100 hover:bg-emerald-600 transition-all">
-                                <i class="fas fa-check me-2"></i> Setujui
-                            </button>
-                        </form>
-                        {{-- Tombol Reject (Trigger Modal) --}}
-                        <button onclick="openRejectModal({{ $item->id }})" class="bg-white text-rose-500 border-2 border-rose-100 px-6 py-3 rounded-xl font-black text-[10px] uppercase tracking-widest hover:bg-rose-50 transition-all">
-                            <i class="fas fa-times me-2"></i> Tolak/Revisi
-                        </button>
-                    </div>
                 </div>
 
-                <div class="grid grid-cols-3 gap-8 p-6 bg-slate-50 rounded-3xl">
-                    <div>
+                <div class="grid grid-cols-4 gap-4 p-6 bg-slate-50 rounded-3xl mb-6">
+                    <div class="col-span-4 md:col-span-1">
                         <span class="text-[9px] font-black text-slate-400 uppercase tracking-widest block mb-1">Indikator</span>
                         <p class="text-sm font-bold text-slate-700">{{ $item->indikator_sub }}</p>
                     </div>
+                    
+                    {{-- [BARU] Menampilkan Baseline --}}
                     <div>
-                        <span class="text-[9px] font-black text-slate-400 uppercase tracking-widest block mb-1">Target 2025</span>
-                        <p class="text-sm font-bold text-slate-700">{{ $item->target_2025 }} {{ $item->satuan }}</p>
+                        <span class="text-[9px] font-black text-slate-400 uppercase tracking-widest block mb-1">Baseline 2024</span>
+                        <p class="text-sm font-bold text-slate-500">{{ $item->baseline_2024 ?? 0 }} {{ $item->satuan }}</p>
                     </div>
+
+                    {{-- Target --}}
                     <div>
-                        <span class="text-[9px] font-black text-slate-400 uppercase tracking-widest block mb-1">Induk Kegiatan</span>
-                        <p class="text-sm font-bold text-indigo-600">{{ $item->activity->nama_kegiatan ?? '-' }}</p>
+                        <span class="text-[9px] font-black text-emerald-600 uppercase tracking-widest block mb-1">Target 2025</span>
+                        <p class="text-sm font-bold text-emerald-700">{{ $item->target_2025 }} {{ $item->satuan }}</p>
                     </div>
+
+                    {{-- [BARU] Gap Kinerja (Hitungan Kasar untuk Info Verifikator) --}}
+                    @php
+                        $gap = ($item->target_2025 ?? 0) - ($item->baseline_2024 ?? 0);
+                        $isPositive = $gap > 0;
+                    @endphp
+                    <div>
+                        <span class="text-[9px] font-black text-slate-400 uppercase tracking-widest block mb-1">Gap Kinerja</span>
+                        <p class="text-sm font-black {{ $isPositive ? 'text-indigo-600' : 'text-slate-400' }}">
+                            {{ $isPositive ? '+' : '' }}{{ $gap }}
+                        </p>
+                    </div>
+                </div>
+
+                <div class="flex gap-3 justify-end border-t border-slate-100 pt-5">
+                     <span class="self-center mr-auto text-[10px] font-bold text-slate-400">
+                        Induk: <span class="text-slate-600">{{ $item->activity->nama_kegiatan ?? '-' }}</span>
+                     </span>
+
+                    {{-- Tombol Approve --}}
+                    <form action="{{ route('kinerja.inbox.approve', ['level' => 'sub_activity', 'id' => $item->id]) }}" method="POST">
+                        @csrf
+                        <button type="submit" class="bg-emerald-500 text-white px-6 py-3 rounded-xl font-black text-[10px] uppercase tracking-widest shadow-lg shadow-emerald-100 hover:bg-emerald-600 transition-all">
+                            <i class="fas fa-check me-2"></i> Setujui
+                        </button>
+                    </form>
+                    {{-- Tombol Reject (Trigger Modal) --}}
+                    <button onclick="openRejectModal({{ $item->id }})" class="bg-white text-rose-500 border-2 border-rose-100 px-6 py-3 rounded-xl font-black text-[10px] uppercase tracking-widest hover:bg-rose-50 transition-all">
+                        <i class="fas fa-times me-2"></i> Tolak/Revisi
+                    </button>
                 </div>
             </div>
             @endforeach
@@ -71,7 +107,7 @@
     @endif
 </div>
 
-{{-- MODAL REJECT --}}
+{{-- MODAL REJECT (TETAP SAMA) --}}
 <div id="rejectModal" class="hidden fixed inset-0 bg-slate-900/60 backdrop-blur-sm z-50 flex items-center justify-center p-4">
     <div class="bg-white rounded-[3rem] w-full max-w-lg overflow-hidden shadow-2xl animate-fade">
         <form id="rejectForm" method="POST">

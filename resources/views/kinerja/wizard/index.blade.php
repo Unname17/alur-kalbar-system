@@ -5,53 +5,26 @@
 
 @push('css')
 <style>
-    /* 1. Desain Panah Progress (Chevron) */
-    .arrow-steps .step {
-        font-size: 11px; font-weight: 800; color: #94a3b8; cursor: pointer;
-        padding: 15px 10px 15px 35px; float: left; position: relative;
-        background-color: #f1f5f9; user-select: none; transition: all 0.2s ease;
-        flex: 1; text-align: center; text-transform: uppercase; letter-spacing: 1px;
-    }
-    .arrow-steps .step:after, .arrow-steps .step:before {
-        content: " "; position: absolute; top: 0; right: -17px; width: 0; height: 0;
-        border-top: 25px solid transparent; border-bottom: 25px solid transparent;
-        border-left: 17px solid #f1f5f9; z-index: 2; transition: border-color 0.2s ease;
-    }
+    /* ... (CSS LAMA TETAP SAMA, TIDAK ADA PERUBAHAN TAMPILAN) ... */
+    .arrow-steps .step { font-size: 11px; font-weight: 800; color: #94a3b8; cursor: pointer; padding: 15px 10px 15px 35px; float: left; position: relative; background-color: #f1f5f9; user-select: none; transition: all 0.2s ease; flex: 1; text-align: center; text-transform: uppercase; letter-spacing: 1px; }
+    .arrow-steps .step:after, .arrow-steps .step:before { content: " "; position: absolute; top: 0; right: -17px; width: 0; height: 0; border-top: 25px solid transparent; border-bottom: 25px solid transparent; border-left: 17px solid #f1f5f9; z-index: 2; transition: border-color 0.2s ease; }
     .arrow-steps .step:before { right: auto; left: 0; border-left: 17px solid #fff; z-index: 0; }
     .arrow-steps .step:first-child:before { border: none; }
     .arrow-steps .step:first-child { border-top-left-radius: 1rem; border-bottom-left-radius: 1rem; padding-left: 20px; }
     .arrow-steps .step:last-child { border-top-right-radius: 1rem; border-bottom-right-radius: 1rem; }
     .arrow-steps .step:last-child:after { border: none; }
-
-    /* 2. States & Hover */
     .arrow-steps .step.active { color: #fff; background-color: #1e293b; }
     .arrow-steps .step.active:after { border-left-color: #1e293b; }
     .arrow-steps .step.completed { color: #fff; background-color: #10b981; }
     .arrow-steps .step.completed:after { border-left-color: #10b981; }
     .arrow-steps .step:hover { background-color: #e2e8f0; }
-
-    .nav-tip {
-        display: inline-flex; align-items: center; gap: 8px; padding: 6px 16px;
-        background: #fdf2f2; border: 1px solid #fee2e2; border-radius: 99px;
-        color: #b91c1c; font-size: 10px; font-weight: 800; margin-top: 15px;
-        animation: pulse-soft 2s infinite;
-    }
+    .nav-tip { display: inline-flex; align-items: center; gap: 8px; padding: 6px 16px; background: #fdf2f2; border: 1px solid #fee2e2; border-radius: 99px; color: #b91c1c; font-size: 10px; font-weight: 800; margin-top: 15px; animation: pulse-soft 2s infinite; }
     @keyframes pulse-soft { 0%, 100% { transform: scale(1); } 50% { transform: scale(1.02); } }
     .animate-fade { animation: fadeIn 0.3s ease-out; }
     @keyframes fadeIn { from { opacity: 0; transform: translateY(10px); } to { opacity: 1; transform: translateY(0); } }
-
-    .status-badge {
-        font-size: 9px; font-weight: 900; text-transform: uppercase;
-        padding: 4px 12px; border-radius: 8px; letter-spacing: 1px;
-    }
-
-    .btn-floating-revisi {
-        position: fixed; bottom: 40px; right: 40px; z-index: 50;
-        transition: all 0.3s cubic-bezier(0.175, 0.885, 0.32, 1.275);
-    }
+    .status-badge { font-size: 9px; font-weight: 900; text-transform: uppercase; padding: 4px 12px; border-radius: 8px; letter-spacing: 1px; }
+    .btn-floating-revisi { position: fixed; bottom: 40px; right: 40px; z-index: 50; transition: all 0.3s cubic-bezier(0.175, 0.885, 0.32, 1.275); }
     .btn-floating-revisi:hover { transform: scale(1.1); }
-
-    /* CSS UNTUK LOCKING */
     .form-locked { pointer-events: none; opacity: 0.6; user-select: none; }
 </style>
 @endpush
@@ -59,7 +32,6 @@
 @section('content')
 <div class="max-w-[1400px] mx-auto space-y-6 relative">
     
-    {{-- ALERT AKSES DIKUNCI (Muncul jika isLocked true) --}}
     @if($isLocked)
     <div class="col-span-12 animate-fade">
         <div class="bg-rose-50 border-2 border-rose-100 p-8 rounded-[2.5rem] flex items-start gap-6 shadow-sm">
@@ -68,20 +40,15 @@
             </div>
             <div>
                 <h4 class="text-xl font-black text-rose-900 tracking-tight uppercase">Akses Input Ditutup</h4>
-                <p class="text-rose-700 font-bold mt-1 leading-relaxed">
-                    {{ $access->pesan_blokir ?? 'Maaf, batas waktu penginputan cascading telah berakhir. Silakan hubungi Admin Bappeda untuk informasi lebih lanjut.' }}
-                </p>
+                <p class="text-rose-700 font-bold mt-1 leading-relaxed">{{ $access->pesan_blokir ?? 'Maaf, batas waktu penginputan cascading telah berakhir.' }}</p>
                 <div class="mt-4 flex gap-3">
-                    <span class="px-3 py-1 bg-white border border-rose-200 rounded-lg text-[10px] font-black text-rose-500 uppercase tracking-widest">
-                        Status: Locked by Bappeda
-                    </span>
+                    <span class="px-3 py-1 bg-white border border-rose-200 rounded-lg text-[10px] font-black text-rose-500 uppercase tracking-widest">Status: Locked by Bappeda</span>
                 </div>
             </div>
         </div>
     </div>
     @endif
 
-    {{-- NAVIGATION TOP --}}
     <div class="bg-white p-6 rounded-3xl border border-slate-200 shadow-sm text-center">
         <div class="arrow-steps flex overflow-hidden">
             @foreach(['Tujuan PD', 'Sasaran Strategis', 'Program', 'Kegiatan', 'Sub-Kegiatan'] as $i => $label)
@@ -90,13 +57,9 @@
                 </div>
             @endforeach
         </div>
-        <div class="nav-tip">
-            <i class="fas fa-lightbulb"></i>
-            <span>Tip: Klik panah untuk pindah level. Gunakan tombol merah di pojok kanan bawah untuk melihat daftar revisi.</span>
-        </div>
+        <div class="nav-tip"><i class="fas fa-lightbulb"></i><span>Tip: Klik panah untuk pindah level. Data Sub-Kegiatan adalah kunci perhitungan SPK & RKA.</span></div>
     </div>
 
-    {{-- FORM BODY --}}
     <div class="bg-white rounded-[2.5rem] border border-slate-200 shadow-sm overflow-hidden animate-fade">
         <div class="px-10 py-8 border-b border-slate-100 bg-slate-50/50 flex justify-between items-center">
             <div>
@@ -105,32 +68,20 @@
                     <span id="badge-status" class="status-badge bg-slate-100 text-slate-500">Draft / Baru</span>
                 </div>
             </div>
-            <div id="badge-step" class="px-4 py-2 bg-indigo-600 text-white rounded-xl text-[10px] font-black uppercase tracking-widest">
-                Langkah 1 / 5
-            </div>
+            <div id="badge-step" class="px-4 py-2 bg-indigo-600 text-white rounded-xl text-[10px] font-black uppercase tracking-widest">Langkah 1 / 5</div>
         </div>
 
-        {{-- Tambahkan class form-locked jika isLocked true --}}
         <form id="formWizard" class="p-10 space-y-8 transition-all duration-500 {{ $isLocked ? 'form-locked' : '' }}">
-            {{-- ALERT REVISI --}}
             <div id="alert-revisi" class="hidden col-span-12 bg-rose-50 p-6 rounded-2xl border border-rose-100 flex items-start gap-4 mb-6">
-                <div class="w-12 h-12 bg-rose-500 rounded-2xl flex items-center justify-center shrink-0">
-                    <i class="fas fa-undo-alt text-white"></i>
-                </div>
-                <div>
-                    <span class="text-[10px] font-black text-rose-500 uppercase tracking-widest block mb-1">Catatan Revisi Atasan:</span>
-                    <p id="catatan-revisi" class="text-sm font-bold text-rose-900 leading-relaxed"></p>
-                </div>
+                <div class="w-12 h-12 bg-rose-500 rounded-2xl flex items-center justify-center shrink-0"><i class="fas fa-undo-alt text-white"></i></div>
+                <div><span class="text-[10px] font-black text-rose-500 uppercase tracking-widest block mb-1">Catatan Revisi:</span><p id="catatan-revisi" class="text-sm font-bold text-rose-900 leading-relaxed"></p></div>
             </div>
 
             <input type="hidden" id="existing_id" value="">
             
             <div class="grid grid-cols-12 gap-8">
                 <div class="col-span-12 bg-indigo-50 p-5 rounded-2xl border border-indigo-100 flex items-center justify-between">
-                    <div class="flex items-center gap-3">
-                        <i class="fas fa-calendar-check text-indigo-600"></i>
-                        <span class="text-xs font-black text-indigo-900 uppercase">Tahun Perencanaan:</span>
-                    </div>
+                    <div class="flex items-center gap-3"><i class="fas fa-calendar-check text-indigo-600"></i><span class="text-xs font-black text-indigo-900 uppercase">Tahun Perencanaan:</span></div>
                     <select id="tahun_input" class="bg-white border-none rounded-xl text-sm font-black px-6 py-2 shadow-sm focus:ring-2 focus:ring-indigo-500">
                         @foreach(range(2025, 2030) as $year)
                             <option value="{{ $year }}">{{ $year }}</option>
@@ -140,17 +91,11 @@
 
                 <div class="col-span-6">
                     <label id="label-parent" class="text-[10px] font-black text-slate-400 uppercase tracking-widest block mb-3">Pilih Induk Data</label>
-                    <select id="parent_id" onchange="loadExisting(this.value)" class="w-full bg-slate-100/50 border-slate-200 rounded-2xl p-4 text-sm font-bold focus:ring-4 focus:ring-indigo-100 outline-none">
-                        <option value="">-- Pilih Induk --</option>
-                    </select>
+                    <select id="parent_id" onchange="loadExisting(this.value)" class="w-full bg-slate-100/50 border-slate-200 rounded-2xl p-4 text-sm font-bold focus:ring-4 focus:ring-indigo-100 outline-none"><option value="">-- Pilih Induk --</option></select>
                 </div>
                 <div class="col-span-6">
-                    <label class="text-[10px] font-black text-indigo-500 uppercase tracking-widest block mb-3">
-                        <i class="fas fa-edit me-1"></i> Update Data Existing?
-                    </label>
-                    <select id="existing_select" onchange="fillForm(this.value)" class="w-full bg-indigo-50 border-indigo-100 rounded-2xl p-4 text-sm font-bold focus:ring-4 focus:ring-indigo-100 outline-none">
-                        <option value="">-- Input Baru --</option>
-                    </select>
+                    <label class="text-[10px] font-black text-indigo-500 uppercase tracking-widest block mb-3"><i class="fas fa-edit me-1"></i> Update Data Existing?</label>
+                    <select id="existing_select" onchange="fillForm(this.value)" class="w-full bg-indigo-50 border-indigo-100 rounded-2xl p-4 text-sm font-bold focus:ring-4 focus:ring-indigo-100 outline-none"><option value="">-- Input Baru --</option></select>
                 </div>
 
                 <div class="col-span-12">
@@ -162,37 +107,49 @@
                     <label class="text-[10px] font-black text-slate-400 uppercase tracking-widest block mb-3">Indikator Kinerja</label>
                     <input type="text" id="indikator" class="w-full bg-white border-2 border-slate-100 rounded-2xl p-4 text-sm font-bold focus:border-indigo-500 outline-none">
                 </div>
-                <div class="col-span-3">
+                
+                {{-- UPDATE 1: MEMISAHKAN KOLOM BASELINE DAN TARGET (Penting untuk SPK Gap Analysis) --}}
+                <div class="col-span-2">
                     <label class="text-[10px] font-black text-slate-400 uppercase tracking-widest block mb-3">Satuan</label>
                     <input type="text" id="satuan" class="w-full bg-white border-2 border-slate-100 rounded-2xl p-4 text-sm font-bold focus:border-indigo-500 outline-none">
                 </div>
-                <div class="col-span-3">
-                    <label class="text-[10px] font-black text-slate-400 uppercase tracking-widest block mb-3">Nilai Target</label>
-                    <input type="text" id="target_value" class="w-full bg-white border-2 border-slate-100 rounded-2xl p-4 text-sm font-bold focus:border-indigo-500 outline-none">
+                
+                {{-- Input Baseline (Untuk 2024 / Tahun Sebelumnya) --}}
+                <div class="col-span-2">
+                    <label class="text-[10px] font-black text-slate-500 uppercase tracking-widest block mb-3">Baseline (Awal)</label>
+                    {{-- Type number agar user dipaksa input angka untuk keperluan rumus SPK --}}
+                    <input type="number" step="any" id="baseline" placeholder="0" class="w-full bg-slate-50 border-2 border-slate-200 rounded-2xl p-4 text-sm font-bold focus:border-indigo-500 outline-none">
                 </div>
 
+                {{-- Input Target (Untuk Tahun Perencanaan) --}}
+                <div class="col-span-2">
+                    <label class="text-[10px] font-black text-emerald-600 uppercase tracking-widest block mb-3">Target (Tujuan)</label>
+                    <input type="number" step="any" id="target_value" placeholder="0" class="w-full bg-emerald-50 border-2 border-emerald-100 rounded-2xl p-4 text-sm font-bold text-emerald-800 focus:border-emerald-500 outline-none">
+                </div>
+
+                {{-- UPDATE 2: INPUT UNTUK SPK (Klasifikasi Mandatory) --}}
                 <div id="box-extra" class="hidden col-span-12 grid grid-cols-2 gap-8 pt-8 border-t border-slate-100">
                     <div>
                         <label class="text-[10px] font-black text-slate-400 uppercase tracking-widest block mb-3">Tipe Perhitungan</label>
                         <select id="tipe_perhitungan" class="w-full bg-slate-50 border-slate-200 rounded-2xl p-4 text-sm font-bold">
-                            <option value="Akumulasi">Akumulasi</option>
-                            <option value="Non-Akumulasi">Non-Akumulasi</option>
+                            <option value="Akumulasi">Akumulasi (Dijumlahkan)</option>
+                            <option value="Non-Akumulasi">Non-Akumulasi (Target Akhir)</option>
                         </select>
                     </div>
                     <div>
-                        <label class="text-[10px] font-black text-slate-400 uppercase tracking-widest block mb-3">Klasifikasi Indikator</label>
-                        <select id="klasifikasi" class="w-full bg-slate-50 border-slate-200 rounded-2xl p-4 text-sm font-bold">
-                            <option value="IKK">IKK (Kunci)</option>
-                            <option value="IKU">IKU (Utama)</option>
+                        <label class="text-[10px] font-black text-indigo-600 uppercase tracking-widest block mb-3">Klasifikasi (Untuk SPK Prioritas)</label>
+                        <select id="klasifikasi" class="w-full bg-indigo-50 border-indigo-100 text-indigo-900 rounded-2xl p-4 text-sm font-bold">
+                            <option value="IKK">IKK (Indeks Kinerja Kunci) - Standar</option>
+                            <option value="IKU">IKU (Indeks Kinerja Utama) - Prioritas</option>
+                            <option value="IKD">IKD (Indeks Kinerja Daerah) - Prioritas</option>
                         </select>
+                        <p class="text-[9px] text-slate-400 mt-2 font-bold ml-1">*Pilih IKU/IKD agar kegiatan ini diprioritaskan dalam SPK RKA.</p>
                     </div>
                 </div>
             </div>
 
             <div class="pt-10 flex justify-between items-center border-t border-slate-50">
                 <button type="button" onclick="location.reload()" class="px-8 py-4 text-slate-400 font-bold text-xs uppercase hover:text-rose-500">Reset</button>
-                
-                {{-- Sembunyikan tombol simpan jika isLocked true --}}
                 @if(!$isLocked)
                 <button type="button" id="btn-save" onclick="processSave()" class="bg-indigo-600 text-white px-12 py-5 rounded-2xl font-black text-[11px] uppercase tracking-[2px] shadow-xl hover:bg-emerald-600 transition-all flex items-center gap-3">
                     <span>Simpan & Ajukan</span> <i class="fas fa-paper-plane"></i>
@@ -206,7 +163,6 @@
         </form>
     </div>
 
-    {{-- FLOATING REVISION CENTER --}}
     <button type="button" onclick="openRevisionCenter()" class="btn-floating-revisi bg-rose-600 text-white px-6 py-5 rounded-full shadow-2xl flex items-center gap-4 border-4 border-white group">
         <div class="relative">
             <i class="fas fa-exclamation-triangle text-xl"></i>
@@ -217,8 +173,8 @@
             <span class="block text-xs font-black uppercase tracking-widest">Revisi Data</span>
         </div>
     </button>
-
-    {{-- MODAL PUSAT REVISI --}}
+    
+    {{-- MODAL REVISI (TETAP SAMA) --}}
     <div id="modal-revisi" class="hidden fixed inset-0 bg-slate-900/60 backdrop-blur-sm z-[60] flex items-center justify-center p-4">
         <div class="bg-white rounded-[3rem] w-full max-w-2xl overflow-hidden shadow-2xl animate-fade">
             <div class="p-10 border-b border-slate-100 flex justify-between items-center bg-rose-50/50">
@@ -236,9 +192,6 @@
 
 @push('js')
 <script>
-    // ... (Semua script JavaScript Anda yang sebelumnya tetap sama) ...
-    // ... Pastikan fungsi jumpToStep, fillForm, dan processSave tetap ada ...
-    
     let currentStep = 1;
     const config = {
         1: { title: "Tujuan PD", parent: "Misi Gubernur" },
@@ -258,6 +211,7 @@
         $('#badge-step').text(`Langkah ${step} / 5`);
         $('#label-parent').text(`Pilih ${config[step].parent} (Induk)`);
 
+        // Tampilkan input Klasifikasi HANYA jika di Step 5 (Sub Kegiatan)
         if(step === 5) $('#box-extra').removeClass('hidden'); else $('#box-extra').addClass('hidden');
         resetFormUI();
 
@@ -277,6 +231,7 @@
         });
     }
 
+    // UPDATE: Load Data Baseline saat Edit
     function fillForm(id) {
         if(!id) { resetFormUI(); return; }
         $.get("{{ url('kinerja/wizard/fetch-detail') }}/" + currentStep + "/" + id, function(data) {
@@ -286,7 +241,18 @@
             $('#nama').val(namaVal);
             $('#indikator').val(indVal);
             $('#satuan').val(data.satuan);
+            
+            // Isi Target & Baseline (Agar SPK bisa menghitung Gap)
             $('#target_value').val(data['target_' + $('#tahun_input').val()] || '');
+            
+            // Asumsi Baseline diambil dari kolom baseline_2024 (Sesuai database Anda)
+            $('#baseline').val(data.baseline_2024 || 0);
+
+            if(currentStep === 5) {
+                $('#tipe_perhitungan').val(data.tipe_perhitungan || 'Non-Akumulasi');
+                $('#klasifikasi').val(data.klasifikasi || 'IKK');
+            }
+
             updateStatusUI(data.status, data.catatan_revisi);
         });
     }
@@ -310,14 +276,13 @@
     }
 
     function resetFormUI() {
-        $('#existing_id, #nama, #indikator, #satuan, #target_value').val('');
+        $('#existing_id, #nama, #indikator, #satuan, #target_value, #baseline').val('');
         $('#badge-status').removeClass().addClass('status-badge bg-slate-100 text-slate-500').text('Draft / Baru');
         $('#alert-revisi').addClass('hidden');
     }
 
-    
-function processSave() {
-        // 1. Ambil SEMUA data form (Gabungan dari kode lama)
+    // UPDATE: Kirim Baseline & Klasifikasi ke Controller
+    function processSave() {
         const data = {
             step: currentStep,
             existing_id: $('#existing_id').val(),
@@ -326,29 +291,28 @@ function processSave() {
             nama: $('#nama').val(),
             indikator: $('#indikator').val(),
             satuan: $('#satuan').val(),
+            
+            // Data untuk SPK
             target_value: $('#target_value').val(),
+            baseline: $('#baseline').val(), // Dikirim ke controller
+            
             tipe_perhitungan: $('#tipe_perhitungan').val(),
             klasifikasi: $('#klasifikasi').val(),
             _token: "{{ csrf_token() }}"
         };
 
-        // 2. Kirim dengan penanganan Error 403 (Kode Baru)
         $.post("{{ route('kinerja.wizard.store') }}", data)
             .done(function(res) {
                 if(res.success) {
-                    alert('Data berhasil diajukan!');
+                    alert('Data berhasil disimpan! Data ini sekarang siap digunakan untuk analisis SPK.');
                     location.reload();
                 }
             })
             .fail(function(xhr) {
-                // INI BAGIAN PENTINGNYA
-                // Menangkap pesan error dari Middleware CheckInputAkses
                 if (xhr.status === 403) {
-                    // Tampilkan pesan spesifik (misal: "Akses Sub-Kegiatan ditutup")
                     alert('GAGAL MENYIMPAN: \n' + xhr.responseJSON.message);
                 } else {
-                    alert('Terjadi kesalahan sistem. Silakan coba lagi.');
-                    console.error(xhr.responseText);
+                    alert('Terjadi kesalahan sistem. Pastikan input berupa angka untuk Target/Baseline.');
                 }
             });
     }

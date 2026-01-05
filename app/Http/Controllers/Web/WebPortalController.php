@@ -30,7 +30,7 @@ public function index()
             'title' => 'E-Budgeting (RKA)',
             'desc' => 'Penyusunan Rincian Anggaran Belanja berdasarkan output kerja.',
             'icon' => 'bi-cash-stack',
-            'url' => '#', 
+            'url' => route('rka.dashboard'),
         ],
         [
             'title' => 'E-KAK',
