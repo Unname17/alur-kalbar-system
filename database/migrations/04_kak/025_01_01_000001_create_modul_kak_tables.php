@@ -26,24 +26,24 @@ return new class extends Migration
             // B. PENERIMA MANFAAT
             $table->text('penerima_manfaat')->nullable();
 
-            // C. MAKSUD DAN TUJUAN (DIPISAH & JADI JSON AGAR BISA MULTI-BARIS)
-            // Contoh isi: ["Maksud A", "Maksud B"]
-            $table->longText('maksud')->change();
+            // C. MAKSUD DAN TUJUAN
+            // FIX: Hapus ->change() karena ini create table
+            $table->longText('maksud')->nullable(); 
             $table->json('tujuan')->nullable(); 
 
             // E. METODE
             $table->string('metode_pelaksanaan')->nullable();
 
-            // F. TAHAPAN (JSON Array)
+            // F. TAHAPAN & JADWAL (Digabung dalam JSON yang lebih kompleks)
             $table->json('tahapan_pelaksanaan')->nullable(); 
 
             // G. TEMPAT
             $table->string('tempat_pelaksanaan')->nullable();
 
-            // H. JADWAL (JSON Object)
+            // H. JADWAL (Opsional, jika ingin terpisah, tapi kita akan gabung di tahapan)
             $table->json('jadwal_matriks')->nullable(); 
             
-            // J. PENANDATANGAN
+            // J. PENANDATANGAN (Snapshot)
             $table->string('nama_pa_kpa')->nullable();
             $table->string('nip_pa_kpa')->nullable();
             $table->string('jabatan_pa_kpa')->nullable();

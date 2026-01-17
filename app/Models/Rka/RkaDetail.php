@@ -28,7 +28,7 @@ protected $fillable = [
      */
     public function rkaMain()
     {
-        return $this->belongsTo(RkaMain::class, 'rka_id');
+        return $this->belongsTo(RkaMain::class, 'rka_main_id');
     }
     public function rekening()
 {

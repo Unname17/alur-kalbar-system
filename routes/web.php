@@ -16,7 +16,8 @@ use App\Http\Controllers\Web\{
     KinerjaWizardController,
     KinerjaApprovalController,
     AdminKinerjaController,
-    PaguKegiatanController
+    PaguKegiatanController,
+    ProcurementController
 };
 
 // 2. Import Controller yang berada di root Controller (Penting: Dipisah agar tidak error)
@@ -82,14 +83,6 @@ Route::middleware(['auth', 'db.set:modul_kinerja'])->prefix('kinerja')->name('ki
         Route::post('/reject/{level}/{id}', [KinerjaApprovalController::class, 'reject'])->name('reject');
     });
 
-    // --- MANAJEMEN PAGU (Khusus Bappeda) ---
-    // URL: /kinerja/manajemen-pagu
-    // Route Name: kinerja.pagu.index
-    Route::middleware(['role:bappeda'])->group(function () {
-        Route::get('/manajemen-pagu', [PaguKegiatanController::class, 'index'])->name('pagu.index');
-        Route::get('/manajemen-pagu/{id}/edit', [PaguKegiatanController::class, 'edit'])->name('pagu.edit');
-        Route::put('/manajemen-pagu/{id}', [PaguKegiatanController::class, 'update'])->name('pagu.update');
-    });
 
     // --- ADMINISTRASI (Khusus Bappeda - Manajemen Akses) ---
     Route::middleware(['role:bappeda'])->prefix('admin')->name('admin.')->group(function () {
@@ -171,11 +164,57 @@ Route::middleware(['auth'])->prefix('kak')->name('kak.')->group(function () {
 // ========================================================================
 // 5. MODUL PENGADAAN (Database: modul_pengadaan)
 // ========================================================================
-Route::middleware(['auth', 'db.set:modul_pengadaan'])->prefix('pengadaan')->group(function () {
-    Route::get('/', [PengadaanController::class, 'index'])->name('pengadaan.index');
-    Route::get('/detail/{id}', [PengadaanController::class, 'show'])->name('pengadaan.show');
-    Route::post('/sync', [PengadaanController::class, 'sync'])->name('pengadaan.sync');
-    Route::put('/{id}/update-metode', [PengadaanController::class, 'updateMetode'])->name('pengadaan.update_metode');
-    Route::post('/document/{id}/upload', [PengadaanController::class, 'uploadDocument'])->name('pengadaan.document.upload');
-    Route::get('/{id}/print/{doc}', [PengadaanController::class, 'printDocument'])->name('pengadaan.print');
+Route::prefix('pengadaan')->name('pengadaan.')->group(function () {
+    Route::get('/', [ProcurementController::class, 'index'])->name('index');
+    Route::get('/create', [ProcurementController::class, 'create'])->name('create');
+    Route::post('/store', [ProcurementController::class, 'store'])->name('store');
+    
+    // Alur Picking
+    Route::get('/{id}/picking', [ProcurementController::class, 'pickItems'])->name('picking');
+    Route::post('/{id}/picking', [ProcurementController::class, 'storePickedItems'])->name('store.picked');
+    
+    // Alur Pelengkap Doc 1 (Alasan & Pengesahan)
+    Route::get('/{id}/edit-doc1', [ProcurementController::class, 'editDoc1'])->name('edit.doc1');
+    Route::post('/{id}/update-doc1', [ProcurementController::class, 'updateDoc1'])->name('update.doc1');
+    
+    // Management & Print
+    Route::get('/{id}/manage', [ProcurementController::class, 'manage'])->name('manage');
+    Route::get('/{id}/print/doc-1', [ProcurementController::class, 'printDoc1'])->name('print.doc1');
+    // Route untuk menyimpan data Strategi (Doc 2 & 3)
+    // Route untuk Doc 2 & 3 (Strategi)
+    Route::post('/{id}/update-strategi', [ProcurementController::class, 'updateStrategi'])->name('update.strategi');
+    Route::get('/{id}/print/doc-2', [ProcurementController::class, 'printDoc2'])->name('print.doc2');
+
+    // FIX: Nama disamakan dengan Blade (update.doc3) dan Method Cetak yang benar (printDoc3)
+    Route::post('/{id}/update-doc3', [ProcurementController::class, 'updateAnalisisPersiapan'])->name('update.doc3');
+    Route::get('/{id}/print/doc-3', [ProcurementController::class, 'printDoc3'])->name('print.doc3');
+
+  // --- ALUR SPESIFIKASI TEKNIS (Doc 4 & 5) ---
+    // Update per-item untuk detail spesifikasi, merk, garansi, dsb.
+    Route::post('/item/{item_id}/update', [ProcurementController::class, 'updateItemDetail'])->name('update.item');
+    // Tambahkan ini di dalam group 'pengadaan.'
+Route::post('/{id}/update-items-bulk', [ProcurementController::class, 'batchUpdateItems'])->name('update.items_bulk');
+    Route::get('/{id}/print/doc-4', [ProcurementController::class, 'printDoc4'])->name('print.doc4');
+    Route::get('/{id}/print/doc-5', [ProcurementController::class, 'printDoc5'])->name('print.doc5');
+
+// --- ALUR ANALISIS HARGA PASAR & KEWAJARAN (Doc 6 & 7) ---
+    
+    // TAMBAHKAN BARIS INI: Rute untuk menyimpan referensi harga (A.1, A.2, B, C)
+    Route::post('/{id}/store-price-ref', [ProcurementController::class, 'storePriceReference'])->name('store.price_ref');
+    Route::delete('/price-ref/{id}', [ProcurementController::class, 'destroyPriceReference'])->name('destroy.price_ref');
+
+    // Rute yang sudah ada tetap biarkan
+    Route::post('/{id}/store-market', [ProcurementController::class, 'storeMarketAnalysis'])->name('store.market');
+    Route::post('/{id}/update-price-justification', [ProcurementController::class, 'updatePriceJustification'])->name('update.price_justification');
+    Route::get('/{id}/print/doc-6', [ProcurementController::class, 'printDoc6'])->name('print.doc6');
+    Route::get('/{id}/print/doc-7', [ProcurementController::class, 'printDoc7'])->name('print.doc7');
+
+    // Route untuk Doc 9 (Negosiasi)
+    Route::post('/{id}/store-negotiation', [ProcurementController::class, 'storeNegotiation'])->name('store.negotiation');
+
+    // Route untuk Doc 10 (Kontrak/SPK)
+Route::post('/{id}/store-contract', [ProcurementController::class, 'storeContract'])->name('store.contract');
+    Route::get('/{id}/print-doc10', [ProcurementController::class, 'printDoc10'])->name('print.doc10');
+    
+    Route::get('/api/kbki/{kode}', [ProcurementController::class, 'getKbkiDetail']);
 });

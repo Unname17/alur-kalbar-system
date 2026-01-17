@@ -129,11 +129,6 @@
                             <i class="fas fa-history w-5 text-center group-hover:scale-110"></i>
                             <span class="text-sm font-bold">Log Aktivitas</span>
                         </a>
-<a href="{{ route('kinerja.pagu.index') }}" 
-   class="flex items-center gap-3 px-4 py-3.5 rounded-2xl transition-all group {{ request()->routeIs('kinerja.pagu.*') ? 'bg-emerald-500 text-white shadow-lg' : 'text-slate-400 hover:text-white hover:bg-white/5' }}">
-    <i class="fas fa-file-invoice-dollar w-5 text-center group-hover:scale-110"></i>
-    <span class="text-sm font-bold">Penetapan Pagu</span>
-</a>
                     </div>
                     @endif
 

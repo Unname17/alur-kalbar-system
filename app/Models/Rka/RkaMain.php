@@ -3,6 +3,7 @@
 namespace App\Models\Rka;
 
 use Illuminate\Database\Eloquent\Model;
+
 use App\Models\Kinerja\SubActivity; // Model dari modul sebelah
 
 class RkaMain extends Model

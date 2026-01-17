@@ -4,21 +4,21 @@
 
 @section('content')
 <div class="space-y-6">
-    {{-- ALERT SISA PAGU --}}
+    {{-- INFORMASI TOTAL USULAN RKA (PENGGANTI SISA PAGU) --}}
     <div class="glass-card p-6 rounded-3xl border border-indigo-500/30 flex justify-between items-center bg-indigo-600/5">
-{{-- Letakkan di dalam glass-card alert pagu --}}
-<div class="flex justify-between items-center">
-    <div>
-        <h3 class="text-white font-bold text-lg">{{ $rka->subActivity->nama_sub }}</h3>
-        <a href="{{ route('rka.edit_header', $rka->id) }}" class="text-indigo-400 hover:text-indigo-300 text-xs font-bold flex items-center gap-1 mt-1">
-            <i class="fas fa-arrow-left"></i> Edit Identitas Dokumen (Step 1)
-        </a>
-    </div>
-    </div>
+        <div class="flex justify-between items-center">
+            <div>
+                <h3 class="text-white font-bold text-lg">{{ $rka->subActivity->nama_sub ?? '-' }}</h3>
+                <a href="{{ route('rka.edit_header', $rka->id) }}" class="text-indigo-400 hover:text-indigo-300 text-xs font-bold flex items-center gap-1 mt-1">
+                    <i class="fas fa-arrow-left"></i> Edit Identitas Dokumen (Step 1)
+                </a>
+            </div>
+        </div>
         <div class="text-right">
-            <p class="text-[10px] font-black text-slate-500 uppercase tracking-widest mb-1">Sisa Saldo Pagu</p>
-            <h2 class="text-2xl font-black {{ $sisaPagu < 0 ? 'text-rose-500' : 'text-emerald-400' }} text-glow">
-                Rp {{ number_format($sisaPagu, 0, ',', '.') }}
+            <p class="text-[10px] font-black text-slate-500 uppercase tracking-widest mb-1">Total Usulan RKA Saat Ini</p>
+            {{-- Menggunakan total_anggaran dari model rka untuk menghindari error undefined variable --}}
+            <h2 class="text-2xl font-black text-emerald-400 text-glow">
+                Rp {{ number_format($rka->total_anggaran ?? 0, 0, ',', '.') }}
             </h2>
         </div>
     </div>
@@ -26,7 +26,7 @@
     <div class="grid grid-cols-12 gap-6">
         {{-- FORM INPUT ITEM --}}
         <div class="col-span-12 lg:col-span-4">
-            <div class="glass-card p-8 rounded-[2.5rem] sticky top-8 transition-all">
+            <div class="glass-card p-8 rounded-[2.5rem] sticky top-8 transition-all border border-slate-800">
                 <h4 class="text-white font-bold mb-6 flex items-center gap-2">
                     <i class="fas fa-cart-plus text-indigo-500"></i> Tambah Item Belanja
                 </h4>
@@ -41,7 +41,7 @@
                     @csrf
                     <div>
                         <label class="text-[10px] font-black text-slate-500 uppercase tracking-widest block mb-2">Kode Rekening</label>
-                        <select name="rekening_id" class="w-full bg-slate-900 border border-slate-700 rounded-xl p-3 text-xs font-bold text-white outline-none focus:border-indigo-500">
+                        <select name="rekening_id" class="w-full bg-slate-900 border border-slate-700 rounded-xl p-3 text-xs font-bold text-white outline-none focus:border-indigo-500" required>
                             <option value="">-- Pilih Rekening --</option>
                             @foreach($rekenings as $rek)
                                 <option value="{{ $rek->id }}">{{ $rek->kode_rekening }} - {{ $rek->nama_rekening }}</option>
@@ -69,7 +69,6 @@
                     <div>
                         <label class="text-[10px] font-black text-slate-500 uppercase tracking-widest block mb-2">Harga Satuan (Rp)</label>
                         <input type="number" name="harga_satuan" id="input_harga_satuan" class="w-full bg-slate-900 border border-slate-700 rounded-xl p-3 text-xs text-white outline-none focus:border-indigo-500" required>
-                        {{-- ELEMEN UNTUK KONVERSI TEKS --}}
                         <div id="harga_satuan_format" class="mt-2 text-[10px] text-amber-400 font-bold italic">Rp 0</div>
                     </div>
                     <button type="submit" class="w-full py-4 bg-indigo-600 hover:bg-indigo-500 text-white rounded-2xl font-black text-[10px] uppercase tracking-widest transition-all">
@@ -79,7 +78,7 @@
             </div>
         </div>
 
-        {{-- TABEL RINCIAN --}}
+        {{-- TABEL RINCIAN BELANJA --}}
         <div class="col-span-12 lg:col-span-8">
             <div class="glass-card rounded-[2.5rem] overflow-hidden border border-slate-800">
                 <table class="w-full text-left border-collapse">
@@ -105,7 +104,6 @@
                                 @endif
                             </td>
                             <td class="px-6 py-4 text-center text-slate-400 font-bold">
-                                {{-- UPDATE: PEMISAH RIBUAN PADA KOEFISIEN --}}
                                 {{ number_format($detail->koefisien, 0, ',', '.') }} <span class="text-[10px] uppercase">{{ $detail->satuan }}</span>
                             </td>
                             <td class="px-6 py-4 text-right text-slate-300 font-mono">
@@ -135,7 +133,7 @@
                     @if($details->count() > 0)
                     <tfoot class="bg-slate-800/20 border-t border-slate-800 font-black">
                         <tr>
-                            <td colspan="3" class="px-6 py-4 text-right text-slate-400 text-[10px] uppercase tracking-widest">Total Usulan RKA</td>
+                            <td colspan="3" class="px-6 py-4 text-right text-slate-400 text-[10px] uppercase tracking-widest">Total Keseluruhan</td>
                             <td class="px-6 py-4 text-right text-white text-lg">
                                 Rp {{ number_format($rka->total_anggaran, 0, ',', '.') }}
                             </td>
@@ -146,20 +144,19 @@
                 </table>
             </div>
             
-{{-- Ganti bagian tombol di paling bawah manage.blade.php --}}
-@if($details->count() > 0)
-<div class="mt-8 flex justify-end">
-    <a href="{{ route('rka.manage_v3', $rka->id) }}" class="px-10 py-5 bg-indigo-600 hover:bg-indigo-500 text-white rounded-3xl font-black text-sm shadow-xl shadow-indigo-500/20 transition-all flex items-center gap-3">
-        Lanjut ke Step 3 (Tim Anggaran) <i class="fas fa-arrow-right"></i>
-    </a>
-</div>
-@endif
+            {{-- TOMBOL NAVIGASI LANJUT --}}
+            @if($details->count() > 0)
+            <div class="mt-8 flex justify-end">
+                <a href="{{ route('rka.manage_v3', $rka->id) }}" class="px-10 py-5 bg-indigo-600 hover:bg-indigo-500 text-white rounded-3xl font-black text-sm shadow-xl shadow-indigo-500/20 transition-all flex items-center gap-3">
+                    Lanjut ke Step 3 (Tim Anggaran) <i class="fas fa-arrow-right"></i>
+                </a>
             </div>
+            @endif
         </div>
     </div>
 </div>
 
-{{-- JAVASCRIPT UNTUK KONVERSI VISUAL --}}
+{{-- JAVASCRIPT UNTUK FORMAT MATA UANG --}}
 <script>
     document.getElementById('input_harga_satuan').addEventListener('input', function(e) {
         let value = e.target.value;
@@ -170,7 +167,6 @@
             return;
         }
 
-        // Format ke mata uang Rupiah
         let formatter = new Intl.NumberFormat('id-ID', {
             style: 'currency',
             currency: 'IDR',
@@ -180,14 +176,9 @@
         let formattedValue = formatter.format(value);
         let helperText = "";
 
-        // Tambahkan label bantu untuk skala besar
-        if (value >= 1000000000) {
-            helperText = " (Miliar)";
-        } else if (value >= 1000000) {
-            helperText = " (Juta)";
-        } else if (value >= 1000) {
-            helperText = " (Ribu)";
-        }
+        if (value >= 1000000000) helperText = " (Miliar)";
+        else if (value >= 1000000) helperText = " (Juta)";
+        else if (value >= 1000) helperText = " (Ribu)";
 
         display.innerText = formattedValue + helperText;
     });

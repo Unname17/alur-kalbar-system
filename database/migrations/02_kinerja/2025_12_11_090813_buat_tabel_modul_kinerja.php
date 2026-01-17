@@ -12,7 +12,8 @@ return new class extends Migration {
         Schema::connection($this->connection)->create('visions', function (Blueprint $table) {
             $table->id();
             $table->text('visi_text'); 
-            $table->year('tahun_awal'); $table->year('tahun_akhir');
+            $table->year('tahun_awal'); 
+            $table->year('tahun_akhir');
             $table->boolean('is_active')->default(true);
             $table->timestamps();
             $table->softDeletes();
@@ -35,8 +36,11 @@ return new class extends Migration {
             $table->text('nama_tujuan');
             $table->text('indikator')->nullable();
             $table->string('satuan')->nullable();
-            $table->string('baseline_2024')->nullable(); // TETAP baseline_2024
-            $this->addTargetColumns($table);
+            
+            // GANTI: Baseline Generik & Desimal
+            $table->decimal('baseline', 15, 2)->nullable()->default(0);
+            
+            $this->addTargetColumns($table); // Panggil fungsi target 5 tahun
             $this->addValidationColumns($table); 
             $table->timestamps();
             $table->softDeletes();
@@ -49,7 +53,9 @@ return new class extends Migration {
             $table->text('nama_sasaran');
             $table->text('indikator_sasaran')->nullable();
             $table->string('satuan')->nullable();
-            $table->string('baseline_2024')->nullable(); // TETAP baseline_2024
+            
+            $table->decimal('baseline', 15, 2)->nullable()->default(0);
+            
             $this->addTargetColumns($table);
             $this->addValidationColumns($table);
             $table->timestamps();
@@ -60,10 +66,13 @@ return new class extends Migration {
         Schema::connection($this->connection)->create('programs', function (Blueprint $table) {
             $table->id();
             $table->foreignId('sasaran_id')->constrained('sasaran_strategis')->onDelete('cascade');
+            $table->unsignedBigInteger('bidang_id')->nullable(); 
             $table->text('nama_program'); 
             $table->text('indikator_program')->nullable();
             $table->string('satuan')->nullable();
-            $table->string('baseline_2024')->nullable(); // TETAP baseline_2024
+            
+            $table->decimal('baseline', 15, 2)->nullable()->default(0);
+            
             $this->addTargetColumns($table);
             $this->addValidationColumns($table);
             $table->timestamps();
@@ -75,16 +84,12 @@ return new class extends Migration {
             $table->id();
             $table->foreignId('program_id')->constrained('programs')->onDelete('cascade');
             $table->string('kode_kegiatan')->nullable();
-            $table->text('nama_kegiatan');
-            
-            // PERBAIKAN DI SINI:
-            // Nama kolom diubah ke 'pagu_anggaran' agar Sesuai Controller Pagu.
-            // Gunakan bigInteger karena ini nominal uang.
-            $table->bigInteger('pagu_anggaran')->default(0); 
-            
+            $table->text('nama_kegiatan');     
             $table->text('indikator_kegiatan')->nullable();
             $table->string('satuan')->nullable();
-            $table->string('baseline_2024')->nullable(); // TETAP baseline_2024
+            
+            $table->decimal('baseline', 15, 2)->nullable()->default(0);
+            
             $this->addTargetColumns($table);
             $this->addValidationColumns($table);
             $table->timestamps();
@@ -99,8 +104,11 @@ return new class extends Migration {
             $table->text('nama_sub');
             $table->text('indikator_sub')->nullable();
             $table->string('satuan')->nullable(); 
-            $table->string('baseline_2024')->nullable(); // TETAP baseline_2024
+            
+            $table->decimal('baseline', 15, 2)->nullable()->default(0);
+            
             $this->addTargetColumns($table);
+            
             $table->enum('tipe_perhitungan', ['Akumulasi', 'Non-Akumulasi'])->default('Non-Akumulasi'); 
             $table->enum('klasifikasi', ['IKD', 'IKU', 'IKK'])->default('IKK');
             $this->addValidationColumns($table); 
@@ -142,13 +150,13 @@ return new class extends Migration {
         });
     }
 
+    // --- FUNGSI GENERIK TARGET 5 TAHUN (DECIMAL) ---
     private function addTargetColumns(Blueprint $table) {
-        $table->string('target_2025')->nullable();
-        $table->string('target_2026')->nullable();
-        $table->string('target_2027')->nullable();
-        $table->string('target_2028')->nullable();
-        $table->string('target_2029')->nullable();
-        $table->string('target_2030')->nullable();
+        $table->decimal('tahun_1', 15, 2)->nullable()->default(0);
+        $table->decimal('tahun_2', 15, 2)->nullable()->default(0);
+        $table->decimal('tahun_3', 15, 2)->nullable()->default(0);
+        $table->decimal('tahun_4', 15, 2)->nullable()->default(0);
+        $table->decimal('tahun_5', 15, 2)->nullable()->default(0);
     }
 
     private function addValidationColumns(Blueprint $table) {

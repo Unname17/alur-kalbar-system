@@ -20,4 +20,9 @@ class Program extends Model
     public function sasaranStrategis() {
     return $this->belongsTo(SasaranStrategis::class, 'sasaran_id');
 }
+
+public function getTotalAnggaranAttribute()
+    {
+        return $this->activities->sum('total_anggaran');
+    }
 }

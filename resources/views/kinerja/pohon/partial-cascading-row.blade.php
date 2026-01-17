@@ -1,8 +1,8 @@
 @php
-    $padding = $level * 30; // Indentasi per level
+    $padding = $level * 30; 
+    
     $childData = null; $nextType = ''; $label = ''; $color = '';
     
-    // Konfigurasi Hirarki Berdasarkan Skema Database Terbaru (No Jumping)
     if($type == 'visi') { 
         $childData = $node->missions; $nextType = 'misi'; $label = 'VISI'; $color = 'bg-slate-900 text-white'; 
     } elseif($type == 'misi') { 
@@ -16,95 +16,88 @@
     } elseif($type == 'kegiatan') { 
         $childData = $node->subActivities; $nextType = 'sub'; $label = 'KEGIATAN'; $color = 'bg-rose-600 text-white'; 
     } elseif($type == 'sub') { 
-        $childData = null; $nextType = ''; $label = 'SUB-KEG'; $color = 'bg-slate-500 text-white'; 
+        $childData = null; $nextType = ''; $label = 'SUB KEGIATAN'; $color = 'bg-slate-600 text-white'; 
     }
 
-    // Ambil Teks Utama berdasarkan Model
-    $mainText = $node->visi_text ?? $node->misi_text ?? $node->nama_tujuan ?? $node->nama_sasaran ?? $node->nama_program ?? $node->nama_kegiatan ?? $node->nama_sub;
-    
-    // Ambil Indikator berdasarkan Model
-    $indikator = $node->indikator ?? $node->indikator_sasaran ?? $node->indikator_program ?? $node->indikator_kegiatan ?? $node->indikator_sub ?? 'N/A';
-
-    // Logika PATOKAN STATUS (Hanya untuk Sub-Kegiatan)
-    $statusColor = 'border-slate-100';
-    if($type == 'sub') {
-        // Contoh logika sederhana: jika ada target 2025, beri highlight hijau muda
-        $statusColor = $node->target_2025 ? 'border-l-4 border-l-emerald-500 bg-emerald-50/30' : 'border-l-4 border-l-rose-500 bg-rose-50/30';
-    }
+    $fmt = fn($v) => (float)$v == 0 ? '-' : (float)$v;
 @endphp
 
-<div class="grid grid-cols-[150px_1fr_300px_100px] hover:bg-slate-50 transition-all group border-b border-slate-100 bg-white {{ $statusColor }}">
-    {{-- Kolom Label --}}
-    <div class="px-6 py-4 flex items-center justify-center border-r border-slate-100">
-        <span class="{{ $color }} px-3 py-1 rounded text-[8px] font-bold tracking-widest uppercase shadow-sm w-full text-center">
-            {{ $label }}
-        </span>
-    </div>
-
-    {{-- Kolom Nama/Uraian --}}
-    <div class="px-8 py-4 text-sm font-semibold text-slate-700 flex items-center" style="padding-left: {{ $padding + 20 }}px">
-        @if($childData && $childData->count() > 0)
-            <button onclick="toggleRow('{{ $type }}-{{ $node->id }}')" 
-                    class="mr-4 w-6 h-6 rounded-lg bg-white border border-slate-200 flex items-center justify-center text-[10px] text-slate-500 hover:bg-slate-900 hover:text-white transition-all shadow-sm cursor-pointer">
-                <i class="fas fa-plus transition-transform duration-300" id="icon-{{ $type }}-{{ $node->id }}"></i>
-            </button>
-        @else
-            <i class="fas fa-circle text-[6px] mr-5 text-slate-300"></i>
-        @endif
+<div class="mb-2 transition-all duration-300" style="margin-left: {{ $padding }}px">
+    <div class="bg-white border border-slate-200 rounded-lg shadow-sm hover:shadow-md transition-shadow overflow-hidden flex">
         
-        <div class="flex flex-col">
-            <span class="leading-relaxed">{{ $mainText }}</span>
-            @if($type == 'sub')
-                <span class="text-[10px] text-slate-400 font-normal mt-1">Kode: {{ $node->kode_sub }} | Tipe: {{ $node->tipe_perhitungan }}</span>
+        {{-- LABEL --}}
+        <div class="{{ $color }} w-28 flex-shrink-0 flex flex-col items-center justify-center p-2 cursor-pointer" onclick="toggleRow('{{ $type }}-{{ $node->id }}')">
+            <span class="text-[10px] font-black tracking-widest text-center leading-tight mb-2">{{ $label }}</span>
+            @if($childData && $childData->count() > 0)
+                <div class="w-5 h-5 rounded-full bg-white/20 flex items-center justify-center">
+                    <i id="icon-{{ $type }}-{{ $node->id }}" class="fas fa-plus text-[8px] text-white transition-transform"></i>
+                </div>
             @endif
         </div>
-    </div>
 
-    {{-- Kolom Indikator & Target --}}
-    <div class="px-8 py-4 text-[11px] text-slate-600 border-x border-slate-100 flex flex-col justify-center">
-        <div class="font-medium truncate mb-1" title="{{ $indikator }}">
-            <i class="fas fa-chart-line mr-2 text-slate-400"></i>{{ $indikator }}
-        </div>
-        @if($node->target_2025)
-            <div class="flex items-center text-[10px] text-emerald-600 font-bold">
-                <span class="bg-emerald-100 px-2 py-0.5 rounded">Target 2025: {{ $node->target_2025 }} {{ $node->satuan ?? '' }}</span>
+        {{-- KONTEN UTAMA --}}
+        <div class="p-3 flex-1 border-r border-slate-100 flex flex-col justify-center cursor-pointer hover:bg-slate-50"
+             onclick="showDetailNode({{ json_encode($node) }}, '{{ $type }}')">
+             
+            <div class="font-bold text-slate-800 text-sm leading-snug">
+                {{ $node->nama_tujuan ?? $node->nama_sasaran ?? $node->nama_program ?? $node->nama_kegiatan ?? $node->nama_sub ?? $node->visi_text ?? $node->misi_text ?? '-' }}
             </div>
-        @endif
-    </div>
 
-    {{-- Kolom Aksi --}}
-    <div class="px-4 py-4 flex items-center justify-center gap-2">
-        <button title="Edit Data" class="w-8 h-8 rounded-lg bg-slate-50 border border-slate-200 text-slate-400 hover:bg-blue-600 hover:text-white hover:border-blue-600 transition-all cursor-pointer">
-            <i class="fas fa-pencil-alt text-[10px]"></i>
-        </button>
+            @if(isset($node->indikator) || isset($node->indikator_sasaran) || isset($node->indikator_program) || isset($node->indikator_kegiatan) || isset($node->indikator_sub))
+                <div class="mt-1 flex items-start gap-2 text-xs text-slate-500">
+                    <i class="fas fa-chart-pie mt-0.5 text-[10px] text-slate-400"></i>
+                    <span class="italic">{{ $node->indikator ?? $node->indikator_sasaran ?? $node->indikator_program ?? $node->indikator_kegiatan ?? $node->indikator_sub ?? '-' }}</span>
+                </div>
+            @endif
+
+            {{-- TARGET DINAMIS --}}
+            @if(isset($node->baseline))
+                <div class="mt-2 pt-2 border-t border-slate-100 flex items-center gap-2 overflow-x-auto">
+                    <div class="flex flex-col items-center px-2 py-0.5 bg-slate-100 rounded border border-slate-200">
+                        <span class="text-[8px] uppercase text-slate-400 font-bold">
+                            {{ isset($baselineYear) ? $baselineYear : 'Base' }}
+                        </span>
+                        <span class="text-[10px] font-mono font-bold text-slate-700">{{ $fmt($node->baseline) }}</span>
+                    </div>
+
+                    <i class="fas fa-chevron-right text-[8px] text-slate-300"></i>
+
+                    @for($i = 1; $i <= 5; $i++)
+                        @php $val = $node->{"tahun_$i"}; @endphp
+                        <div class="flex flex-col items-center px-2 py-0.5 {{ $i==5 ? 'bg-emerald-50 border border-emerald-100' : 'bg-white border border-slate-100' }} rounded">
+                            <span class="text-[8px] uppercase {{ $i==5 ? 'text-emerald-400' : 'text-slate-400' }}">
+                                {{ isset($startYear) ? ($startYear + $i - 1) : 'Th'.$i }}
+                            </span>
+                            <span class="text-[10px] font-mono font-bold {{ $i==5 ? 'text-emerald-600' : 'text-slate-600' }}">
+                                {{ $fmt($val) }}
+                            </span>
+                        </div>
+                    @endfor
+                    
+                    <span class="text-[9px] text-slate-400 ml-1 bg-slate-50 px-1.5 rounded">{{ $node->satuan ?? '' }}</span>
+                </div>
+            @endif
+        </div>
+
+        {{-- AKSI --}}
+        <div class="w-12 bg-slate-50 flex items-center justify-center border-l border-slate-100">
+             <button class="w-8 h-8 rounded-lg text-slate-400 hover:text-blue-600 hover:bg-white hover:shadow-sm transition-all border border-transparent hover:border-slate-200" title="Edit">
+                <i class="fas fa-pencil-alt text-xs"></i>
+            </button>
+        </div>
     </div>
 </div>
 
-{{-- Container untuk Anak Level (Recursive) --}}
 @if($childData && $childData->count() > 0)
     <div id="container-{{ $type }}-{{ $node->id }}" class="hidden">
         @foreach($childData as $child)
-            @include('kinerja.pohon.partial-cascading-row', ['node' => $child, 'type' => $nextType, 'level' => $level + 1])
+            @include('kinerja.pohon.partial-cascading-row', [
+                'node' => $child, 
+                'type' => $nextType, 
+                'level' => $level + 1,
+                'startYear' => $startYear ?? 2025,       // Kirim ke anak
+                'baselineYear' => $baselineYear ?? 2024  // Kirim ke anak
+            ])
         @endforeach
     </div>
 @endif
-
-{{-- Script Global (Hanya load sekali) --}}
-@once
-<script>
-    function toggleRow(id) {
-        const container = document.getElementById(`container-${id}`);
-        const icon = document.getElementById(`icon-${id}`);
-        
-        if (container.classList.contains('hidden')) {
-            container.classList.remove('hidden');
-            icon.classList.replace('fa-plus', 'fa-minus');
-            icon.classList.add('text-blue-600');
-        } else {
-            container.classList.add('hidden');
-            icon.classList.replace('fa-minus', 'fa-plus');
-            icon.classList.remove('text-blue-600');
-        }
-    }
-</script>
-@endonce

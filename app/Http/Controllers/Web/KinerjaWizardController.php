@@ -7,18 +7,27 @@ use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Auth;
 use App\Helpers\LogKinerja;
 use Illuminate\Support\Facades\DB; 
-use App\Models\Kinerja\{Mission, Goal, SasaranStrategis, Program, Activity, SubActivity, AccessSetting};
+use App\Models\Kinerja\{Vision,Mission, Goal, SasaranStrategis, Program, Activity, SubActivity, AccessSetting};
 
 class KinerjaWizardController extends Controller
 {
     /**
      * Tampilan Utama Wizard
      */
+
+
     public function index()
     {
         $user = auth()->user();
         
-        // Cek aturan akses
+        $activeVision = Vision::on('modul_kinerja')->where('is_active', true)->first();
+        $startYear = $activeVision ? (int)$activeVision->tahun_awal : date('Y');
+        
+        $years = [];
+        for ($i = 0; $i < 5; $i++) {
+            $years[] = $startYear + $i;
+        }
+
         $access = AccessSetting::where(function($q) use ($user) {
                 $q->where('user_nip', $user->nip)
                   ->orWhere(function($sq) use ($user) {
@@ -28,7 +37,6 @@ class KinerjaWizardController extends Controller
             })->first();
 
         $isLocked = false;
-        
         if ($access) {
             $now = now();
             $manualLock = (bool)$access->is_locked;
@@ -37,107 +45,110 @@ class KinerjaWizardController extends Controller
             $isLocked = $manualLock || $timeLocked;
         }
 
-        return view('kinerja.wizard.index', compact('isLocked', 'access'));
+        return view('kinerja.wizard.index', compact('isLocked', 'access', 'startYear', 'years'));
     }
 
-    /**
-     * Logika Simpan Per Step (Wizard)
-     * DIPERBARUI: Menangani penyimpanan Baseline & Target untuk perhitungan selisih.
-     */
     public function storeStep(Request $request)
     {
-        $step = (int) $request->step;
+        $request->validate([
+            'step' => 'required',
+            'nama' => 'required|string',
+        ]);
+
+        $step = (int) $request->step; 
+
+        // 1. Tentukan Model, Parent Column, Indikator Column, dan Name Column
+        $modelClass = null;
+        $parentIdColumn = null;
+        $indicatorColumn = 'indikator'; // Default
+        $nameColumn = 'nama'; // Default
         
-        // Menentukan kolom target dinamis (misal: target_2025)
-        $targetColumn = 'target_' . ($request->tahun_input ?? date('Y'));
-        
-        $id = $request->existing_id;
-        $user = auth()->user();
-
-        // 1. Ambil Role User
-        $userRole = strtolower(is_object($user->role) ? $user->role->name : $user->role);
-
-        try {
-            // 2. Siapkan Data Teknis (Target, Satuan, & BASELINE)
-            // Penambahan 'baseline' penting agar selisih (gap) bisa dihitung nanti.
-            $updateData = [
-                $targetColumn => $request->target_value, // Target (Kondisi yang diinginkan)
-                'baseline'    => $request->baseline,     // Baseline (Kondisi saat ini/tahun lalu)
-                'satuan'      => $request->satuan,
-            ];
-
-            // 3. LOGIKA PENENTUAN STATUS
-            if (!$id) {
-                // KASUS A: Input Baru -> Wajib Pending
-                $updateData['status'] = 'pending';
-                $updateData['catatan_revisi'] = null;
-            } else {
-                // KASUS B: Edit Data Lama
-                $approvers = ['kabid', 'kadis', 'bappeda', 'admin_utama'];
-
-                if (!in_array($userRole, $approvers)) {
-                    // Jika STAFF edit -> Reset jadi Pending
-                    $updateData['status'] = 'pending';
-                    $updateData['catatan_revisi'] = null; 
-                } 
-                // Pejabat edit -> Status tidak berubah
-            }
-
-            // 4. Proses Simpan ke Database
-            // Data Pagu TIDAK disertakan di sini karena beda controller.
-            $data = match ($step) {
-                1 => Goal::on('modul_kinerja')->updateOrCreate(['id' => $id], array_merge($updateData, [
-                    'mission_id' => $request->parent_id, 
-                    'pd_id' => $user->pd_id, 
-                    'nama_tujuan' => $request->nama, 
-                    'indikator' => $request->indikator
-                ])),
-                2 => SasaranStrategis::on('modul_kinerja')->updateOrCreate(['id' => $id], array_merge($updateData, [
-                    'goal_id' => $request->parent_id, 
-                    'nama_sasaran' => $request->nama, 
-                    'indikator_sasaran' => $request->indikator
-                ])),
-                3 => Program::on('modul_kinerja')->updateOrCreate(['id' => $id], array_merge($updateData, [
-                    'sasaran_id' => $request->parent_id, 
-                    'nama_program' => $request->nama, 
-                    'indikator_program' => $request->indikator
-                ])),
-                4 => Activity::on('modul_kinerja')->updateOrCreate(['id' => $id], array_merge($updateData, [
-                    'program_id' => $request->parent_id, 
-                    'nama_kegiatan' => $request->nama, 
-                    'indikator_kegiatan' => $request->indikator
-                ])),
-                5 => SubActivity::on('modul_kinerja')->updateOrCreate(['id' => $id], array_merge($updateData, [
-                    'activity_id' => $request->parent_id, 
-                    'nama_sub' => $request->nama, 
-                    'indikator_sub' => $request->indikator,
-                    // Tambahan spesifik untuk Sub-Kegiatan (Logic type)
-                    'tipe_perhitungan' => $request->tipe_perhitungan, 
-                    'klasifikasi' => $request->klasifikasi, 
-                    'created_by_nip' => $user->nip
-                ])),
-            };
-
-            // 5. Catat Log Aktivitas
-            $actionType = $request->existing_id ? 'UPDATE' : 'CREATE';
-            $levelName = match((int)$request->step) {
-                1 => 'Tujuan PD', 2 => 'Sasaran', 3 => 'Program', 4 => 'Kegiatan', 5 => 'Sub-Kegiatan'
-            };
-
-            LogKinerja::record(
-                $actionType, 
-                "Melakukan $actionType data $levelName dengan nama: " . $request->nama,
-                $data 
-            );
-
-            return response()->json([
-                'success' => true, 
-                'inserted_id' => $data->id, 
-                'message' => 'Data kinerja (Target & Baseline) berhasil disimpan.'
-            ]);
-        } catch (\Exception $e) {
-            return response()->json(['success' => false, 'message' => $e->getMessage()], 500);
+        switch ($step) {
+            case 2: // Tujuan PD
+                $modelClass = Goal::class;
+                $parentIdColumn = 'mission_id';
+                $indicatorColumn = 'indikator'; // Sesuai Migration: table->text('indikator')
+                $nameColumn = 'nama_tujuan';
+                break;
+            case 3: // Sasaran
+                $modelClass = SasaranStrategis::class;
+                $parentIdColumn = 'goal_id';
+                $indicatorColumn = 'indikator_sasaran'; // Sesuai Migration
+                $nameColumn = 'nama_sasaran';
+                break;
+            case 4: // Program
+                $modelClass = Program::class;
+                $parentIdColumn = 'sasaran_id';
+                $indicatorColumn = 'indikator_program'; // Sesuai Migration
+                $nameColumn = 'nama_program';
+                break;
+            case 5: // Kegiatan
+                $modelClass = Activity::class;
+                $parentIdColumn = 'program_id';
+                $indicatorColumn = 'indikator_kegiatan'; // Sesuai Migration
+                $nameColumn = 'nama_kegiatan';
+                break;
+            case 6: // Sub Kegiatan
+                $modelClass = SubActivity::class;
+                $parentIdColumn = 'activity_id';
+                $indicatorColumn = 'indikator_sub'; // Sesuai Migration
+                $nameColumn = 'nama_sub';
+                break;
+            default:
+                return response()->json(['message' => 'Step tidak valid'], 422);
         }
+
+        $vision = Vision::on('modul_kinerja')->where('is_active', true)->first();
+        $startYear = $vision ? (int)$vision->tahun_awal : date('Y');
+
+        // 2. Siapkan Data Dasar (HANYA Data Umum)
+        $data = [
+            'satuan'    => $request->satuan,
+            'baseline'  => $request->baseline, 
+        ];
+
+        // 3. Masukkan Data Spesifik (Indikator & Nama) dengan Key yang BENAR
+        $data[$indicatorColumn] = $request->indikator;
+        $data[$nameColumn] = $request->nama;
+
+        // 4. Parent ID
+        if ($request->parent_id && $parentIdColumn) {
+            $data[$parentIdColumn] = $request->parent_id;
+        }
+
+        // 5. PD ID (Khusus Tujuan PD)
+        if ($step == 2) {
+            $data['pd_id'] = auth()->user()->pd_id;
+        }
+
+        // 6. Mapping Target 5 Tahun
+        if ($request->has('target_values') && is_array($request->target_values)) {
+            foreach ($request->target_values as $year => $value) {
+                $yearIndex = ((int)$year - $startYear) + 1;
+                if ($yearIndex >= 1 && $yearIndex <= 5) {
+                    $data["tahun_{$yearIndex}"] = $value;
+                }
+            }
+        } 
+
+        // 7. Status & Tambahan Sub Kegiatan
+        $data['status'] = 'draft';
+
+        if ($step == 6) {
+            $data['tipe_perhitungan'] = $request->tipe_perhitungan ?? 'Non-Akumulasi';
+            $data['klasifikasi'] = $request->klasifikasi ?? 'IKK';
+            // created_by_nip ada di migration sub_activities
+            $data['created_by_nip'] = auth()->user()->nip; 
+        }
+
+        // 8. Eksekusi
+        if ($request->id) {
+            $modelClass::on('modul_kinerja')->where('id', $request->id)->update($data);
+        } else {
+            $modelClass::on('modul_kinerja')->create($data);
+        }
+
+        return response()->json(['message' => 'Data berhasil disimpan.', 'success' => true]);
     }
     
     // --- Helper Fetch Data Wizard ---
@@ -148,25 +159,25 @@ class KinerjaWizardController extends Controller
             $results = [];
 
             $levels = [
-                ['name' => 'Tujuan', 'step' => 1, 'model' => \App\Models\Kinerja\Goal::class],
-                ['name' => 'Sasaran', 'step' => 2, 'model' => \App\Models\Kinerja\SasaranStrategis::class],
-                ['name' => 'Program', 'step' => 3, 'model' => \App\Models\Kinerja\Program::class],
-                ['name' => 'Kegiatan', 'step' => 4, 'model' => \App\Models\Kinerja\Activity::class],
-                ['name' => 'Sub-Kegiatan', 'step' => 5, 'model' => \App\Models\Kinerja\SubActivity::class],
+                ['name' => 'Tujuan', 'step' => 2, 'model' => \App\Models\Kinerja\Goal::class],
+                ['name' => 'Sasaran', 'step' => 3, 'model' => \App\Models\Kinerja\SasaranStrategis::class],
+                ['name' => 'Program', 'step' => 4, 'model' => \App\Models\Kinerja\Program::class],
+                ['name' => 'Kegiatan', 'step' => 5, 'model' => \App\Models\Kinerja\Activity::class],
+                ['name' => 'Sub-Kegiatan', 'step' => 6, 'model' => \App\Models\Kinerja\SubActivity::class],
             ];
 
             foreach ($levels as $l) {
                 $query = $l['model']::on('modul_kinerja')->where('status', 'rejected');
 
-                if ($l['step'] == 1) {
+                if ($l['step'] == 2) {
                     $query->where('pd_id', $pd_id);
-                } elseif ($l['step'] == 2) {
-                    $query->whereHas('goal', fn($q) => $q->where('pd_id', $pd_id));
                 } elseif ($l['step'] == 3) {
-                    $query->whereHas('sasaranStrategis.goal', fn($q) => $q->where('pd_id', $pd_id));
+                    $query->whereHas('goal', fn($q) => $q->where('pd_id', $pd_id));
                 } elseif ($l['step'] == 4) {
-                    $query->whereHas('program.sasaranStrategis.goal', fn($q) => $q->where('pd_id', $pd_id));
+                    $query->whereHas('sasaranStrategis.goal', fn($q) => $q->where('pd_id', $pd_id));
                 } elseif ($l['step'] == 5) {
+                    $query->whereHas('program.sasaranStrategis.goal', fn($q) => $q->where('pd_id', $pd_id));
+                } elseif ($l['step'] == 6) {
                     $query->whereHas('activity.program.sasaranStrategis.goal', fn($q) => $q->where('pd_id', $pd_id));
                 }
 
@@ -193,12 +204,14 @@ class KinerjaWizardController extends Controller
     {
         $pd_id = auth()->user()->pd_id;
         $data = [];
+        $level = (int)$level;
+
         switch ($level) {
-            case 1: $data = Mission::on('modul_kinerja')->get(['id', 'misi_text as text']); break;
-            case 2: $data = Goal::on('modul_kinerja')->where('pd_id', $pd_id)->get(['id', 'nama_tujuan as text']); break;
-            case 3: $data = SasaranStrategis::on('modul_kinerja')->whereHas('goal', fn($q) => $q->where('pd_id', $pd_id))->get(['id', 'nama_sasaran as text']); break;
-            case 4: $data = Program::on('modul_kinerja')->whereHas('sasaranStrategis.goal', fn($q) => $q->where('pd_id', $pd_id))->get(['id', 'nama_program as text']); break;
-            case 5: $data = Activity::on('modul_kinerja')->whereHas('program.sasaranStrategis.goal', fn($q) => $q->where('pd_id', $pd_id))->get(['id', 'nama_kegiatan as text']); break;
+            case 2: $data = Mission::on('modul_kinerja')->get(['id', 'misi_text as text']); break;
+            case 3: $data = Goal::on('modul_kinerja')->where('pd_id', $pd_id)->get(['id', 'nama_tujuan as text']); break;
+            case 4: $data = SasaranStrategis::on('modul_kinerja')->whereHas('goal', fn($q) => $q->where('pd_id', $pd_id))->get(['id', 'nama_sasaran as text']); break;
+            case 5: $data = Program::on('modul_kinerja')->whereHas('sasaranStrategis.goal', fn($q) => $q->where('pd_id', $pd_id))->get(['id', 'nama_program as text']); break;
+            case 6: $data = Activity::on('modul_kinerja')->whereHas('program.sasaranStrategis.goal', fn($q) => $q->where('pd_id', $pd_id))->get(['id', 'nama_kegiatan as text']); break;
         }
         return response()->json($data);
     }
@@ -207,25 +220,32 @@ class KinerjaWizardController extends Controller
     {
         $pd_id = auth()->user()->pd_id;
         $data = [];
-        switch ((int)$level) {
-            case 1: $data = Goal::on('modul_kinerja')->where('mission_id', $parentId)->where('pd_id', $pd_id)->get()->map(fn($item) => ['id' => $item->id, 'text' => $item->nama_tujuan]); break;
-            case 2: $data = SasaranStrategis::on('modul_kinerja')->where('goal_id', $parentId)->get()->map(fn($item) => ['id' => $item->id, 'text' => $item->nama_sasaran]); break;
-            case 3: $data = Program::on('modul_kinerja')->where('sasaran_id', $parentId)->get()->map(fn($item) => ['id' => $item->id, 'text' => $item->nama_program]); break;
-            case 4: $data = Activity::on('modul_kinerja')->where('program_id', $parentId)->get()->map(fn($item) => ['id' => $item->id, 'text' => $item->nama_kegiatan]); break;
-            case 5: $data = SubActivity::on('modul_kinerja')->where('activity_id', $parentId)->get()->map(fn($item) => ['id' => $item->id, 'text' => $item->nama_sub]); break;
+        $level = (int)$level;
+
+        switch ($level) {
+            case 2: $data = Goal::on('modul_kinerja')->where('mission_id', $parentId)->where('pd_id', $pd_id)->get()->map(fn($item) => ['id' => $item->id, 'text' => $item->nama_tujuan]); break;
+            case 3: $data = SasaranStrategis::on('modul_kinerja')->where('goal_id', $parentId)->get()->map(fn($item) => ['id' => $item->id, 'text' => $item->nama_sasaran]); break;
+            case 4: $data = Program::on('modul_kinerja')->where('sasaran_id', $parentId)->get()->map(fn($item) => ['id' => $item->id, 'text' => $item->nama_program]); break;
+            case 5: $data = Activity::on('modul_kinerja')->where('program_id', $parentId)->get()->map(fn($item) => ['id' => $item->id, 'text' => $item->nama_kegiatan]); break;
+            case 6: $data = SubActivity::on('modul_kinerja')->where('activity_id', $parentId)->get()->map(fn($item) => ['id' => $item->id, 'text' => $item->nama_sub]); break;
         }
         return response()->json($data);
     }
 
     public function fetchDetail($level, $id)
     {
-        $model = match((int)$level) {
-            1 => Goal::on('modul_kinerja'),
-            2 => SasaranStrategis::on('modul_kinerja'),
-            3 => Program::on('modul_kinerja'),
-            4 => Activity::on('modul_kinerja'),
-            5 => SubActivity::on('modul_kinerja'),
+        $level = (int)$level;
+        $model = match($level) {
+            2 => Goal::on('modul_kinerja'),
+            3 => SasaranStrategis::on('modul_kinerja'),
+            4 => Program::on('modul_kinerja'),
+            5 => Activity::on('modul_kinerja'),
+            6 => SubActivity::on('modul_kinerja'),
+            default => null
         };
+
+        if (!$model) return response()->json(['error' => 'Invalid level'], 400);
+
         $data = $model->find($id);
         if ($data) {
             $data->nama = $data->nama_tujuan ?? $data->nama_sasaran ?? $data->nama_program ?? $data->nama_kegiatan ?? $data->nama_sub;

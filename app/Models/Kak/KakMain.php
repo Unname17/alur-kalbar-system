@@ -3,12 +3,14 @@
 namespace App\Models\Kak;
 
 use Illuminate\Database\Eloquent\Model;
+use Illuminate\Database\Eloquent\SoftDeletes;
 use App\Models\Rka\RkaMain;
 use App\Models\Kinerja\SubActivity;
 
 class KakMain extends Model
 {
-    // Definisikan koneksi khusus
+    use SoftDeletes;
+    
     protected $connection = 'modul_kak';
     protected $table = 'kak_mains';
 
@@ -18,7 +20,8 @@ class KakMain extends Model
         'latar_belakang',
         'dasar_hukum',
         'penerima_manfaat',
-        'maksud_tujuan',
+        'maksud',        // Fix: Maksud berdiri sendiri
+        'tujuan',        // Fix: Tujuan berdiri sendiri
         'metode_pelaksanaan',
         'tahapan_pelaksanaan',
         'tempat_pelaksanaan',
@@ -28,7 +31,7 @@ class KakMain extends Model
         'jabatan_pa_kpa'
     ];
 
-    // Auto-convert JSON ke Array PHP
+    // Auto-convert JSON ke Array PHP (Wajib agar AlpineJS bisa baca)
     protected $casts = [
         'dasar_hukum' => 'array',
         'tahapan_pelaksanaan' => 'array',
@@ -36,18 +39,11 @@ class KakMain extends Model
         'tujuan' => 'array',
     ];
 
-    /**
-     * RELASI LINTAS DATABASE 1: Ke Modul Anggaran (RKA)
-     */
     public function rka()
     {
-        // Tentukan foreign key dan owner key secara eksplisit
         return $this->belongsTo(RkaMain::class, 'rka_main_id', 'id');
     }
 
-    /**
-     * RELASI LINTAS DATABASE 2: Ke Modul Kinerja (Untuk ambil Indikator)
-     */
     public function subActivity()
     {
         return $this->belongsTo(SubActivity::class, 'sub_activity_id', 'id');

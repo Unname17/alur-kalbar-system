@@ -44,7 +44,7 @@ class WebPortalController extends Controller
                 'title' => 'Pengadaan Barang/Jasa',
                 'desc' => 'Manajemen paket pekerjaan dan metode pengadaan pemerintah.',
                 'icon' => 'bi-truck',
-                'url' => '#',
+                'url' => route('pengadaan.index'),
             ],
                         // --- MODUL BARU: DASHBOARD PIMPINAN ---
             // Ditujukan untuk Bappeda, Kadis, Kabid memantau makro (Visi Misi) & mikro (Progress Kegiatan)

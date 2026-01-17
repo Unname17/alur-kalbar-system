@@ -15,11 +15,22 @@ class DatabaseSeeder extends Seeder
      */
     public function run(): void
     {
-        // User::factory(10)->create();
 
-        User::factory()->create([
-            'name' => 'Test User',
-            'email' => 'test@example.com',
+
+    $this->call([
+            KbkiMasterSeeder::class,
+            ProcurementVendorSeeder::class, // Tambahkan di sini
+            ProcurementPackageSeeder::class,
+            ProcurementPreparationSeeder::class, 
+            ProcurementAnalysisSeeder::class, 
+            ProcurementSpecSeeder::class, 
+            ProcurementDoc6Seeder::class,
+            
         ]);
+
+        // User::factory()->create([
+        //     'name' => 'Test User',
+        //     'email' => 'test@example.com',
+        // ]);
     }
 }
