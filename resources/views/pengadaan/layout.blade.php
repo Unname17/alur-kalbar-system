@@ -111,20 +111,14 @@
                     <span class="hidden lg:block text-sm font-bold">Dashboard</span>
                 </a>
 
-                {{-- Paket Saya --}}
-                <a href="#" class="flex items-center gap-4 p-3 rounded-xl {{ request()->is('pengadaan/manage*') ? 'bg-procurement-500/10 text-cyan-400 border border-procurement-500/20' : 'text-slate-400 hover:bg-slate-800 hover:text-white' }} transition-all">
-                    <i class="fas fa-box-open text-lg w-6 text-center"></i>
-                    <span class="hidden lg:block text-sm font-bold">Paket Pengadaan</span>
-                </a>
-
                 {{-- Master Vendor --}}
-                <a href="#" class="flex items-center gap-4 p-3 rounded-xl text-slate-400 hover:bg-slate-800 hover:text-white transition-all">
+                <a href="{{ route('pengadaan.vendor.index') }}" class="flex items-center gap-4 p-3 rounded-xl text-slate-400 hover:bg-slate-800 hover:text-white transition-all">
                     <i class="fas fa-users-cog text-lg w-6 text-center"></i>
                     <span class="hidden lg:block text-sm font-bold">Database Vendor</span>
                 </a>
 
                 {{-- Laporan --}}
-                <a href="#" class="flex items-center gap-4 p-3 rounded-xl text-slate-400 hover:bg-slate-800 hover:text-white transition-all">
+                <a href="{{ route('pengadaan.archive') }}" class="flex items-center gap-4 p-3 rounded-xl text-slate-400 hover:bg-slate-800 hover:text-white transition-all">
                     <i class="fas fa-file-contract text-lg w-6 text-center"></i>
                     <span class="hidden lg:block text-sm font-bold">Laporan & Arsip</span>
                 </a>

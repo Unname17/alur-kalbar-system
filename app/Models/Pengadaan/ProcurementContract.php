@@ -14,4 +14,9 @@ class ProcurementContract extends Model
     {
         return $this->belongsTo(ProcurementPackage::class, 'package_id');
     }
+    public function vendor()
+{
+    // Menghubungkan kontrak dengan database vendor
+    return $this->belongsTo(ProcurementVendor::class, 'vendor_id');
+}
 }

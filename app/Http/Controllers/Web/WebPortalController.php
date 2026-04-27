@@ -52,8 +52,8 @@ class WebPortalController extends Controller
                 'title' => 'Dashboard Pimpinan',
                 'desc' => 'Executive Summary: Monitoring Capaian Visi-Misi, IKU, & Progress Realisasi Kegiatan.',
                 'icon' => 'bi-speedometer2', // Ikon Speedometer cocok untuk dashboard
-                'url' => '#', // Pastikan Anda membuat route ini nanti
-                'is_locked' => false, // Dashboard biasanya read-only, jadi jarang dikunci
+                'url' => route('executive.index'), 
+                'is_locked' => false,
             ],
             // --------------------------------------
         ];

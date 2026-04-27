@@ -223,43 +223,61 @@ public function updateDoc1(Request $request, $id)
 /**
  * UPDATE STRATEGI (Doc 2 & 3)
  */
+
 public function updateStrategi(Request $request, $id)
-{
-    // 1. Ambil data paket
-    $package = ProcurementPackage::findOrFail($id);
+    {
+        DB::connection($this->connection)->table('procurement_preparations')->updateOrInsert(
+            ['package_id' => $id],
+            [
+                'jalur_prioritas' => $request->jalur_prioritas,
+                'jalur_strategis' => $request->jalur_strategis,
+                'justifikasi_pilihan' => $request->justifikasi_pilihan,
+                'alasan_metode' => $request->alasan_metode ?? 'Sesuai dengan justifikasi strategi e-purchasing.',
+                'kriteria_barang_jasa' => $request->kriteria_barang_jasa ?? 'Standar',
+                
+                // Konversi checkbox ke boolean/integer
+                'uji_pasar_ideal' => $request->has('uji_pasar_ideal') ? 1 : 0,
+                'uji_non_kritikal' => $request->has('uji_non_kritikal') ? 1 : 0,
+                'uji_nol_value_added' => $request->has('uji_nol_value_added') ? 1 : 0,
+                'uji_spek_stabil' => $request->has('uji_spek_stabil') ? 1 : 0,
+                'uji_pengalaman_identik' => $request->has('uji_pengalaman_identik') ? 1 : 0,
+                
+                'tanggal_analisis' => now(),
+                'updated_at' => now(),
+            ]
+        );
 
-    // 2. Simpan atau Update ke tabel preparations
-    DB::connection('modul_pengadaan')->table('procurement_preparations')->updateOrInsert(
-        ['package_id' => $id],
-        [
-            'jalur_prioritas' => $request->jalur_prioritas,
-            'alasan_metode' => $request->alasan_metode,
-            'kriteria_barang_jasa' => $request->kriteria_barang_jasa,
-            
-            // Simpan hasil Uji Kelayakan (C) [cite: 273]
-            'uji_pasar_ideal' => $request->has('uji_pasar_ideal'),
-            'uji_non_kritikal' => $request->has('uji_non_kritikal'),
-            'uji_nol_value_added' => $request->has('uji_nol_value_added'),
-            'uji_spek_stabil' => $request->has('uji_spek_stabil'),
-            'uji_pengalaman_identik' => $request->has('uji_pengalaman_identik'),
-            
-            // Keputusan Final (D) [cite: 278]
-            'jalur_strategis' => $request->jalur_strategis, // Negosiasi atau Mini Kompetisi
-            'justifikasi_pilihan' => $request->justifikasi_pilihan,
-            
-            // Simpan pilihan target (D.3/D.4) sebagai JSON
-            'target_strategis' => json_encode($request->target_pilihan),
-            
-            'tanggal_analisis' => now(),
-            'updated_at' => now(),
-        ]
-    );
+        // Update status tahapan paket
+        ProcurementPackage::where('id', $id)->update(['status_tahapan' => 'strategi']);
 
-    // 3. Update status tahapan paket
-    $package->update(['status_tahapan' => 'strategi_selesai']);
+        return redirect()->route('pengadaan.manage', $id)->with([
+            'success' => 'Strategi Pengadaan (Doc 2) berhasil disimpan.',
+            'tab' => 'strategi' // State agar tetap di tab strategi
+        ]);
+    }
 
-    return redirect()->back()->with('success', 'Strategi Pengadaan (Doc 2) berhasil disimpan.');
-}
+    /**
+     * 4. UPDATE ANALISA (DOC 3)
+     */
+    public function updateDoc3(Request $request, $id)
+    {
+        DB::connection($this->connection)->table('procurement_preparation_analyses')->updateOrInsert(
+            ['package_id' => $id],
+            [
+                'nama_calon_penyedia' => $request->nama_calon_penyedia,
+                'produk_katalog' => $request->produk_katalog,
+                'harga_tayang_katalog' => $request->harga_tayang_katalog,
+                'link_produk_katalog' => $request->link_produk_katalog,
+                'updated_at' => now(),
+                'created_at' => now(),
+            ]
+        );
+
+        return redirect()->route('pengadaan.manage', $id)->with([
+            'success' => 'Kertas Kerja Analisa (Doc 3) berhasil disimpan.',
+            'tab' => 'strategi'
+        ]);
+    }
 
 /**
  * Cetak Dokumen 2 - Justifikasi Strategis Pemilihan Metode
@@ -508,33 +526,38 @@ public function printDoc7($id) {
 
 public function storeContract(Request $request, $id)
 {
+    // 1. Validasi
     $request->validate([
-        'vendor_id' => 'required',
-        'nomor_sp' => 'required',
-        'tanggal_sp' => 'required',
+        'vendor_id' => 'required|exists:modul_pengadaan.procurement_vendors,id',
+        'nomor_sp' => 'required|string',
+        'tanggal_sp' => 'required|date',
     ]);
 
-    // 1. Ambil data paket
+    // 2. Kalkulasi Total (Tetap menggunakan sum agar akurat Rp 234,3 Juta)
+    $totalNilaiKontrak = DB::connection($this->connection)
+        ->table('procurement_items')
+        ->where('package_id', $id)
+        ->sum('total_hps');
+
     $package = DB::connection($this->connection)->table('procurement_packages')->where('id', $id)->first();
 
-    // 2. Ambil referensi harga untuk nilai kontrak (tetap ambil dari Doc 6 sebagai dasar harga)
-    $reference = DB::connection($this->connection)->table('procurement_price_references')
-        ->where('package_id', $id)
-        ->where('type', 'market')
-        ->first();
-
-    // 3. Simpan ke Tabel Kontrak menggunakan vendor_id pilihan Anda
+    // 3. Simpan data lengkap termasuk Jaminan dan Syarat Khusus
     DB::connection($this->connection)->table('procurement_contracts')->updateOrInsert(
         ['package_id' => $id],
         [
-            'vendor_id' => $request->vendor_id, // Menerima pilihan dari form
+            'vendor_id' => $request->vendor_id,
             'nomor_sp' => $request->nomor_sp,
             'tanggal_sp' => $request->tanggal_sp,
-            'sumber_dana' => $request->sumber_dana ?? 'APBD Provinsi Kalimantan Barat TA 2026',
-            'waktu_penyelesaian' => $request->waktu_penyelesaian ?? 30,
+            'sumber_dana' => $request->sumber_dana,
+            'waktu_penyelesaian' => $request->waktu_penyelesaian,
             'alamat_penyerahan' => $request->alamat_penyerahan,
-            'nilai_kontrak_final' => $reference->harga_satuan ?? 0, // Nilai otomatis dari Doc 6
-            'jenis_pembayaran' => $request->jenis_pembayaran ?? 'Sekaligus',
+            'nilai_kontrak_final' => $totalNilaiKontrak,
+            
+            // KOLOM BARU UNTUK MELENGKAPI DOC 10
+            'nilai_jaminan_pelaksanaan' => $request->nilai_jaminan_pelaksanaan,
+            'penerbit_jaminan' => $request->penerbit_jaminan,
+            'syarat_khusus_tambahan' => $request->syarat_khusus_tambahan,
+
             'nama_pejabat_penandatangan' => $package->nama_pa_kpa,
             'nip_pejabat_penandatangan' => $package->nip_pa_kpa,
             'jabatan_pejabat' => 'Pejabat Pembuat Komitmen (PPK)',
@@ -543,36 +566,30 @@ public function storeContract(Request $request, $id)
         ]
     );
 
-    return back()->with('success', 'Kontrak Doc 10 berhasil diterbitkan dengan vendor pilihan Anda.');
+    return back()->with('success', 'Kontrak Smart City telah dilengkapi dengan Jaminan Pelaksanaan & Denda.');
 }
 
     /**
      * Cetak PDF Surat Pesanan (Doc 10)
      */
-    public function printDoc10($id)
-    {
-        $package = DB::connection($this->connection)->table('procurement_packages')->where('id', $id)->first();
-        
-        $contract = DB::connection($this->connection)->table('procurement_contracts')
-            ->where('package_id', $id)
-            ->first();
+public function printDoc10($id)
+{
+    // Ambil data paket dan kontrak beserta relasinya
+    $package = DB::connection($this->connection)->table('procurement_packages')->where('id', $id)->first();
+    $contract = DB::connection($this->connection)->table('procurement_contracts')->where('package_id', $id)->first();
 
-        if (!$contract) {
-            return "Silakan lengkapi dan simpan form Doc 10 terlebih dahulu.";
-        }
-
-        // Ambil identitas vendor pemenang kontrak
-        $vendor = DB::connection($this->connection)->table('procurement_vendors')
-            ->where('id', $contract->vendor_id)
-            ->first();
-
-        $items = DB::connection($this->connection)->table('procurement_items')
-            ->where('package_id', $id)
-            ->get();
-
-        $pdf = Pdf::loadView('pengadaan.print.doc10', compact('package', 'contract', 'vendor', 'items'));
-        return $pdf->stream('Doc10_Surat_Pesanan_' . $id . '.pdf');
+    if (!$contract) {
+        return "Data kontrak belum lengkap. Silakan simpan form Doc 10 terlebih dahulu.";
     }
+
+    $vendor = DB::connection($this->connection)->table('procurement_vendors')->where('id', $contract->vendor_id)->first();
+    $items = DB::connection($this->connection)->table('procurement_items')->where('package_id', $id)->get();
+
+    // Load view PDF dengan data tambahan jaminan dan syarat khusus
+    $pdf = Pdf::loadView('pengadaan.print.doc10', compact('package', 'contract', 'vendor', 'items'));
+    
+    return $pdf->stream('Doc10_Surat_Pesanan_' . $id . '.pdf');
+}
 
     /**
      * 5. MANAGE - PUSAT KENDALI 10 DOKUMEN
@@ -639,6 +656,23 @@ public function printDoc1($id)
     return $pdf->stream('Doc1_Identifikasi_' . $package->id . '.pdf');
 }
 
+public function archive()
+{
+    // 1. Ambil semua paket yang statusnya 'kontrak_selesai'
+    $packages = ProcurementPackage::with(['contract.vendor'])
+        ->where('status_tahapan', 'kontrak_selesai')
+        ->orderBy('updated_at', 'desc')
+        ->get();
 
+    // 2. Hitung total akumulasi belanja dari seluruh paket yang diarsip
+    $totalSpending = $packages->sum(function($pkg) {
+        return $pkg->contract->nilai_kontrak_final ?? 0;
+    });
+
+    // 3. Hitung jumlah paket untuk statistik tambahan
+    $totalPackages = $packages->count();
+
+    return view('pengadaan.archive', compact('packages', 'totalSpending', 'totalPackages'));
+}
 
 }

@@ -17,7 +17,8 @@ use App\Http\Controllers\Web\{
     KinerjaApprovalController,
     AdminKinerjaController,
     PaguKegiatanController,
-    ProcurementController
+    ProcurementController,
+    DashboardPimpinanController
 };
 
 // 2. Import Controller yang berada di root Controller (Penting: Dipisah agar tidak error)
@@ -217,4 +218,35 @@ Route::post('/{id}/store-contract', [ProcurementController::class, 'storeContrac
     Route::get('/{id}/print-doc10', [ProcurementController::class, 'printDoc10'])->name('print.doc10');
     
     Route::get('/api/kbki/{kode}', [ProcurementController::class, 'getKbkiDetail']);
+
+    // Database Vendor Routes
+Route::prefix('vendor')->group(function () {
+    Route::get('/', [App\Http\Controllers\Web\VendorController::class, 'index'])->name('vendor.index');
+    Route::get('/create', [App\Http\Controllers\Web\VendorController::class, 'create'])->name('vendor.create');
+    Route::post('/store', [App\Http\Controllers\Web\VendorController::class, 'store'])->name('vendor.store');
+    Route::get('/{id}/edit', [App\Http\Controllers\Web\VendorController::class, 'edit'])->name('vendor.edit');
+    Route::post('/{id}/update', [App\Http\Controllers\Web\VendorController::class, 'update'])->name('vendor.update');
+    Route::delete('/{id}/destroy', [App\Http\Controllers\Web\VendorController::class, 'destroy'])->name('vendor.destroy');
 });
+// Tambahkan di dalam Route::prefix('pengadaan')->name('pengadaan.')->group(function () { ... })
+Route::get('/arsip', [ProcurementController::class, 'archive'])->name('archive');
+});
+
+// Tambahkan di bagian paling bawah atau setelah grup modul pengadaan
+// ========================================================================
+// 6. MODUL DASHBOARD PIMPINAN (Database: modul_dashboard)
+// ========================================================================
+    
+Route::middleware(['auth', 'db.set:modul_dashboard'])
+    ->prefix('executive')
+    ->name('executive.') // Ini akan memberikan prefix 'executive.' pada semua nama rute di bawahnya
+    ->group(function () {
+        
+        Route::get('/', [DashboardPimpinanController::class, 'index'])->name('index');
+        Route::get('/sync', [DashboardPimpinanController::class, 'fullSync'])->name('sync');
+        
+        // Cukup 'details', maka nama lengkapnya menjadi 'executive.details'
+        Route::get('/dashboard/details/{id}', [DashboardPimpinanController::class, 'getItemDetails'])->name('details');
+        Route::post('/note/store', [DashboardPimpinanController::class, 'storeNote'])->name('note.store');
+        Route::get('/export-ppt', [DashboardPimpinanController::class, 'exportPpt'])->name('export.ppt');
+    });

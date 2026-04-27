@@ -20,11 +20,11 @@ class DatabaseSeeder extends Seeder
     $this->call([
             KbkiMasterSeeder::class,
             ProcurementVendorSeeder::class, // Tambahkan di sini
-            ProcurementPackageSeeder::class,
-            ProcurementPreparationSeeder::class, 
-            ProcurementAnalysisSeeder::class, 
-            ProcurementSpecSeeder::class, 
-            ProcurementDoc6Seeder::class,
+            // ProcurementPackageSeeder::class,
+            // ProcurementPreparationSeeder::class, 
+            // ProcurementAnalysisSeeder::class, 
+            // ProcurementSpecSeeder::class, 
+            // ProcurementDoc6Seeder::class,
             
         ]);
 
